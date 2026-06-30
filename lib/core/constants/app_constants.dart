@@ -8,7 +8,7 @@ class AppConstants {
   // Yahan apna GitHub username aur repo name daalo.
   // Release workflow automatically ek APK GitHub Release pe upload karega.
   static const String githubOwner = 'HRxcommunity'; // ← CHANGE THIS
-  static const String githubRepo  = 'beatflow-app';              // ← repo name
+  static const String githubRepo  = 'beatflow';    // ← repo name
 
   // Hive box names
   static const String songsBox = 'songs';
