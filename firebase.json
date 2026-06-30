@@ -1,0 +1,25 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "beatflow-app-1590c",
+          "appId": "1:877172431584:android:0133a3eee8d65c370d4e85",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "beatflow-app-1590c",
+          "configurations": {
+            "android": "1:877172431584:android:0133a3eee8d65c370d4e85"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}

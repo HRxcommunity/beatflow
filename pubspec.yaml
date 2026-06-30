@@ -1,0 +1,104 @@
+name: beatflow
+description: BeatFlow — Premium Music Player with BeatFlow Together.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # State management
+  flutter_bloc: ^8.1.6
+  equatable: ^2.0.5
+
+  # Audio
+  just_audio: ^0.9.40
+  audio_service: ^0.18.15
+
+  # Storage
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Navigation
+  go_router: ^14.2.7
+
+  # Media query / scanner
+  on_audio_query: ^2.9.0
+
+  # UI
+  flutter_staggered_animations: ^1.1.1
+  cached_network_image: ^3.3.1
+
+  # Utils
+  uuid: ^4.4.2
+  path_provider: ^2.1.4
+  path: ^1.9.0
+
+  # Firebase — BeatFlow Together
+  firebase_core: ^3.3.0
+  firebase_auth: ^5.1.4
+  cloud_firestore: ^5.2.1
+  # firebase_storage removed — chat media now uses Cloudinary (free tier, no premium needed)
+
+  # YouTube streaming
+  youtube_explode_dart: ^2.3.3
+
+  # Media picker — for chat media and background image picker
+  image_picker: ^1.1.2
+  file_picker: ^8.0.7
+  mime: ^2.0.0
+
+  # Permissions
+  permission_handler: ^11.3.1
+
+  # Emoji picker
+  emoji_picker_flutter: ^4.4.0
+
+  # Open URLs
+  url_launcher: ^6.3.0
+  http: ^1.2.2
+
+  # In-app browser — HRxBrowse (privacy mode, ad-block, bookmarks)
+  webview_flutter: ^4.7.0
+
+  # OTA Updates — reads versionName from pubspec at runtime
+  package_info_plus: ^8.1.0
+
+  # Local notifications — vocab learning reminders (pinned to last 17.x:
+  # 18.0.0+ removed uiLocalNotificationDateInterpretation/changed show() to named args)
+  flutter_local_notifications: ^17.2.4
+  timezone: ^0.9.0
+
+  # Study AI — PDF text extraction for quiz generation
+  # Pinned to 29.1.38 — 29.1.39+ requires Dart SDK >=3.7.0, this project is on 3.6.2
+  syncfusion_flutter_pdf: ^29.1.38
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.11
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700

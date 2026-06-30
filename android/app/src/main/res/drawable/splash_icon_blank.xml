@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Blank transparent drawable used to suppress the Android 12+ splash icon.
+     By pointing windowSplashScreenAnimatedIcon here, the system splash shows
+     only the dark background (#030D1E) with no icon — user sees our
+     Flutter SplashScreen directly. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#00000000" />
+</shape>

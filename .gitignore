@@ -1,0 +1,43 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+*.g.dart
+
+# Android
+android/local.properties
+android/.gradle/
+android/captures/
+android/gradlew
+android/gradlew.bat
+android/key.properties
+*.jks
+*.keystore
+android/app/beatflow-release.jks
+
+# BUG-005 / BUG-006 / BUG-007 SECURITY:
+# These files contain Firebase API keys, Cloudinary credentials, and
+# app IDs. NEVER commit them to a public repository.
+# Regenerate firebase_options.dart with: flutterfire configure
+lib/firebase_options.dart
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Hive local DB (user data, not for version control)
+*.hive
+*.lock

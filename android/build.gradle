@@ -1,0 +1,57 @@
+// Plugin versions are managed in settings.gradle (pluginManagement block)
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// ── Critical: redirect Gradle output so Flutter tool finds the APK ──
+// Flutter looks for the APK at {project}/build/app/outputs/flutter-apk/
+// Without this redirect, AGP puts the APK in android/app/build/ and
+// Flutter's tool can't find it (the "failed to produce an .apk" error).
+rootProject.buildDir = '../build'
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+
+// ── Java 17 for plugin subprojects ──
+// SEPARATE block from evaluationDependsOn — combining them in one block
+// causes "Cannot run afterEvaluate when project is already evaluated" in Gradle 8.7
+subprojects {
+    afterEvaluate { proj ->
+        if (proj.hasProperty('android')) {
+            try {
+                if (proj.android.namespace == null) {
+                    def manifest = proj.android.sourceSets?.main?.manifest?.srcFile
+                    if (manifest?.exists()) {
+                        def pkg = new XmlSlurper().parse(manifest)?.@package?.text()
+                        if (pkg) proj.android.namespace = pkg
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            try {
+                proj.android.compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            } catch (Exception ignored) {}
+
+            try {
+                proj.android.kotlinOptions { jvmTarget = '17' }
+            } catch (Exception ignored) {}
+        }
+    }
+}
+
+// ── Evaluation order ──
+// Separate block so :app is not already-evaluated when afterEvaluate fires
+subprojects {
+    project.evaluationDependsOn(':app')
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}

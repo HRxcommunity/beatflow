@@ -1,0 +1,170 @@
+# .github/workflows/build-release.yml
+#
+# BeatFlow — Automatic APK Build & GitHub Release
+# ─────────────────────────────────────────────────
+# TRIGGER: Jab bhi tum git tag push karo (v*.*.*)
+#
+#   git tag v1.1.0
+#   git push origin v1.1.0
+#
+# YEH WORKFLOW KARTA HAI:
+#   1. Flutter environment setup
+#   2. Sensitive files (Firebase, Keystore) GitHub Secrets se inject karta hai
+#   3. APK build karta hai (signed release)
+#   4. GitHub Release create karta hai + APK attach karta hai
+#   5. App ke andar UpdateService automatically yeh release detect kar leti hai
+#
+# REQUIRED GITHUB SECRETS (Settings → Secrets → Actions):
+#   FIREBASE_OPTIONS_DART     → lib/firebase_options.dart ka content (base64)
+#   GOOGLE_SERVICES_JSON      → android/app/google-services.json ka content (base64)
+#   KEYSTORE_BASE64           → .jks file ka base64 encoded content
+#   KEY_ALIAS                 → keystore key alias
+#   KEY_PASSWORD              → key password
+#   STORE_PASSWORD            → keystore store password
+#
+# Setup guide: docs/OTA_RELEASE_GUIDE.md
+
+name: 🚀 Build & Release APK
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'   # v1.0.0, v1.2.3, v2.0.0 etc.
+
+# Sirf ek release ek waqt mein build ho
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    name: Build APK & Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # GitHub Release create karne ke liye
+
+    steps:
+      # ── 1. Code checkout ──────────────────────────────────────────────────
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for changelog generation
+
+      # ── 2. Flutter setup ──────────────────────────────────────────────────
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.x'
+          channel: 'stable'
+          cache: true
+
+      # ── 3. Version tag se versionName/versionCode nikalo ─────────────────
+      - name: 🏷️ Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"           # e.g. v1.2.3
+          VERSION="${TAG#v}"                  # e.g. 1.2.3
+          # versionCode = major*10000 + minor*100 + patch (e.g. 1.2.3 → 10203)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          CODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH ))
+          echo "tag=$TAG"           >> $GITHUB_OUTPUT
+          echo "version=$VERSION"   >> $GITHUB_OUTPUT
+          echo "code=$CODE"         >> $GITHUB_OUTPUT
+          echo "apk_name=beatflow-${TAG}.apk" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION (code: $CODE)"
+
+      # ── 4. pubspec.yaml mein version update karo ─────────────────────────
+      - name: 📝 Update pubspec version
+        run: |
+          sed -i "s/^version: .*/version: ${{ steps.version.outputs.version }}+${{ steps.version.outputs.code }}/" pubspec.yaml
+          echo "Updated pubspec.yaml:"
+          grep "^version:" pubspec.yaml
+
+      # ── 5. Firebase files inject karo (GitHub Secrets se) ────────────────
+      - name: 🔥 Inject Firebase config
+        env:
+          FIREBASE_OPTIONS:    ${{ secrets.FIREBASE_OPTIONS_DART }}
+          GOOGLE_SERVICES:     ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          echo "$FIREBASE_OPTIONS" | base64 -d > lib/firebase_options.dart
+          echo "$GOOGLE_SERVICES"  | base64 -d > android/app/google-services.json
+          echo "✅ Firebase files injected"
+
+      # ── 6. Keystore inject karo ───────────────────────────────────────────
+      - name: 🔑 Setup signing keystore
+        env:
+          KEYSTORE_B64:   ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS:      ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD:   ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        run: |
+          # Keystore file decode karo
+          echo "$KEYSTORE_B64" | base64 -d > android/app/beatflow-release.jks
+
+          # key.properties file banao (android/app/build.gradle isko padhta hai)
+          cat > android/key.properties << EOF
+          storeFile=beatflow-release.jks
+          storePassword=${STORE_PASSWORD}
+          keyAlias=${KEY_ALIAS}
+          keyPassword=${KEY_PASSWORD}
+          EOF
+          echo "✅ Keystore configured"
+
+      # ── 7. Dependencies install karo ─────────────────────────────────────
+      - name: 📦 Flutter pub get
+        run: flutter pub get
+
+      # ── 8. APK build karo ────────────────────────────────────────────────
+      - name: 🔨 Build release APK
+        run: |
+          flutter build apk --release \
+            --obfuscate \
+            --split-debug-info=./build/debug-symbols \
+            --build-name=${{ steps.version.outputs.version }} \
+            --build-number=${{ steps.version.outputs.code }}
+
+      # ── 9. APK rename karo ───────────────────────────────────────────────
+      - name: ✏️ Rename APK
+        run: |
+          mv build/app/outputs/flutter-apk/app-release.apk \
+             build/app/outputs/flutter-apk/${{ steps.version.outputs.apk_name }}
+          ls -lh build/app/outputs/flutter-apk/
+          echo "✅ APK: ${{ steps.version.outputs.apk_name }}"
+
+      # ── 10. GitHub Release create karo + APK attach karo ─────────────────
+      - name: 🎉 Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "BeatFlow ${{ steps.version.outputs.tag }}"
+          body: |
+            ## 🎵 BeatFlow ${{ steps.version.outputs.tag }}
+
+            > **App ke andar update dialog automatically aayega agar purani version installed hai.**
+
+            ### Install
+            Neeche **beatflow-${{ steps.version.outputs.tag }}.apk** download karo aur install karo.
+            (Settings → Install unknown apps allow karna padega pehli baar)
+
+            ---
+            *Auto-generated by GitHub Actions*
+          files: |
+            build/app/outputs/flutter-apk/${{ steps.version.outputs.apk_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 11. Summary ──────────────────────────────────────────────────────
+      - name: 📊 Build Summary
+        run: |
+          APK_SIZE=$(du -sh build/app/outputs/flutter-apk/${{ steps.version.outputs.apk_name }} | cut -f1)
+          echo "## ✅ Release Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | ${{ steps.version.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Code | ${{ steps.version.outputs.code }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| APK Size | $APK_SIZE |" >> $GITHUB_STEP_SUMMARY
+          echo "| APK Name | ${{ steps.version.outputs.apk_name }} |" >> $GITHUB_STEP_SUMMARY

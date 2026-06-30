@@ -1,0 +1,12 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "together_sessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sessionCode", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
