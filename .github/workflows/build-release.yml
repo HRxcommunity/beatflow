@@ -86,8 +86,8 @@ jobs:
           FIREBASE_OPTIONS:    ${{ secrets.FIREBASE_OPTIONS_DART }}
           GOOGLE_SERVICES:     ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          echo "$FIREBASE_OPTIONS" | base64 -d > lib/firebase_options.dart
-          echo "$GOOGLE_SERVICES"  | base64 -d > android/app/google-services.json
+          echo "$FIREBASE_OPTIONS" | base64 --decode > lib/firebase_options.dart
+          echo "$GOOGLE_SERVICES"  | base64 --decode > android/app/google-services.json
           echo "✅ Firebase files injected"
 
       # ── 6. Keystore inject karo ───────────────────────────────────────────
