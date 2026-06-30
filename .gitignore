@@ -6,7 +6,7 @@
 .pub-cache/
 .pub/
 build/
-*.g.dart
+#*.g.dart
 
 # Android
 android/local.properties
