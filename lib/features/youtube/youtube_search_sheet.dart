@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../together/bloc/together_bloc.dart';
 import 'youtube_service.dart';
+import 'youtube_video_screen.dart';
 import '../../core/theme/app_theme.dart';
 
 // ╔══════════════════════════════════════════════════════════════╗
@@ -244,6 +245,23 @@ class _YoutubeSearchSheetState extends State<YoutubeSearchSheet> {
                                   Navigator.pop(context);
                                 }
                               : null,
+                          onPlayVideo: widget.isOwner
+                              ? () {
+                                  ctx.read<TogetherBloc>()
+                                      .add(TogetherPlayYoutubeVideo(track));
+                                  Navigator.pop(context);
+                                }
+                              : () {
+                                  // Guest / non-owner: open YouTube video locally
+                                  Navigator.pop(context);
+                                  Navigator.of(context).push(MaterialPageRoute(
+                                    builder: (_) => YoutubeVideoScreen(
+                                      videoId: track.videoId,
+                                      title:   track.title,
+                                      artist:  track.artist,
+                                    ),
+                                  ));
+                                },
                           onShare: () {
                             ctx.read<TogetherBloc>()
                                 .add(TogetherShareYoutubeTrack(track));
@@ -282,7 +300,8 @@ class _YoutubeTrackTile extends StatelessWidget {
   final Color accent;
   final bool isOwner;
   final bool isLoading;
-  final VoidCallback? onPlay;
+  final VoidCallback? onPlay;       // audio play
+  final VoidCallback? onPlayVideo;  // video play (opens YouTube player)
   final VoidCallback onShare;
 
   const _YoutubeTrackTile({
@@ -291,6 +310,7 @@ class _YoutubeTrackTile extends StatelessWidget {
     required this.isOwner,
     required this.isLoading,
     required this.onPlay,
+    required this.onPlayVideo,
     required this.onShare,
   });
 
@@ -351,8 +371,8 @@ class _YoutubeTrackTile extends StatelessWidget {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Play (owner only)
-              if (isOwner)
+              // ── Audio play (owner only) ──────────────────────
+              if (isOwner) ...[
                 GestureDetector(
                   onTap: isLoading ? null : onPlay,
                   child: Container(
@@ -368,11 +388,26 @@ class _YoutubeTrackTile extends StatelessWidget {
                             child: CircularProgressIndicator(
                                 color: Colors.white, strokeWidth: 2),
                           )
-                        : const Icon(Icons.play_arrow_rounded,
-                            color: Colors.white, size: 20),
+                        : const Icon(Icons.audiotrack_rounded,
+                            color: Colors.white, size: 18),
                   ),
                 ),
-              if (isOwner) const SizedBox(height: 6),
+                const SizedBox(height: 4),
+                // ── Video play button ──────────────────────────
+                GestureDetector(
+                  onTap: isLoading ? null : onPlayVideo,
+                  child: Container(
+                    width: 34, height: 34,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFFFF0000).withOpacity(0.85),
+                    ),
+                    child: const Icon(Icons.smart_display_rounded,
+                        color: Colors.white, size: 18),
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
               // Share in chat
               GestureDetector(
                 onTap: onShare,

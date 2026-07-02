@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../presentation/splash/splash_screen.dart';
 import '../../presentation/home/home_screen.dart';
 import '../../presentation/player/now_playing_screen.dart';
+import '../../presentation/player/video_player_screen.dart';
 import '../../presentation/playlists/playlist_detail_screen.dart';
 import '../../presentation/albums/album_detail_screen.dart';
 import '../../presentation/artists/artist_detail_screen.dart';
@@ -13,6 +14,7 @@ import '../../features/together/presentation/together_screen.dart';
 import '../../features/ai_vocab/ai_vocab_chat_screen.dart';
 import '../../features/ai_vocab/vocab_notif_settings_screen.dart';
 import '../../features/browser/hrx_browse_screen.dart';
+import '../../features/youtube/youtube_video_screen.dart';
 import '../../features/study_ai/study_ai_screen.dart';
 
 import '../../domain/entities/song_entity.dart';
@@ -21,6 +23,7 @@ class AppRouter {
   static const splash     = '/';
   static const home       = '/home';
   static const nowPlaying = '/now-playing';
+  static const videoPlayer = '/video-player';
   static const playlist   = '/playlist';
   static const album      = '/album';
   static const artist     = '/artist';
@@ -30,8 +33,9 @@ class AppRouter {
   static const together   = '/together';
   static const aiVocab    = '/ai-vocab';
   static const vocabNotifSetup = '/ai-vocab/notif-setup';
-  static const browser    = '/browser';
   static const studyAi    = '/study-ai';
+  static const browser    = '/browser';
+  static const youtubeVideo = '/youtube-video';
 
   static final router = GoRouter(
     initialLocation: splash,
@@ -47,6 +51,24 @@ class AppRouter {
       GoRoute(
         path: nowPlaying,
         builder: (context, state) => const NowPlayingScreen(),
+      ),
+      GoRoute(
+        path: videoPlayer,
+        builder: (context, state) {
+          final song = state.extra as SongEntity;
+          return VideoPlayerScreen(song: song);
+        },
+      ),
+      GoRoute(
+        path: youtubeVideo,
+        builder: (context, state) {
+          final extra = state.extra as Map<String, String>;
+          return YoutubeVideoScreen(
+            videoId: extra['videoId']!,
+            title:   extra['title']!,
+            artist:  extra['artist']!,
+          );
+        },
       ),
       GoRoute(
         path: '$playlist/:id',
@@ -97,6 +119,10 @@ class AppRouter {
         builder: (context, state) => const VocabNotifSettingsScreen(),
       ),
       GoRoute(
+        path: studyAi,
+        builder: (context, state) => const StudyAiScreen(),
+      ),
+      GoRoute(
         path: browser,
         builder: (context, state) {
           final extra = state.extra;
@@ -111,10 +137,6 @@ class AppRouter {
             initialUrl: initialUrl,
           );
         },
-      ),
-      GoRoute(
-        path: studyAi,
-        builder: (context, state) => const StudyAiScreen(),
       ),
 
     ],

@@ -18,6 +18,7 @@ import 'presentation/settings/settings_bloc.dart';
 import 'features/together/bloc/together_bloc.dart';
 import 'features/together/bloc/game_bloc.dart';
 import 'features/together/presentation/together_sync_listener.dart';
+import 'features/ai_vocab/vocab_notif_service.dart';
 import 'widgets/common/app_background.dart';
 
 void main() async {
@@ -48,6 +49,18 @@ void main() async {
     await ServiceLocator.instance.init();
   } catch (e) {
     debugPrint('[BeatFlow] ServiceLocator init failed: $e');
+  }
+
+  // Init vocab notification service
+  // BUG-VN01 FIX: VocabNotifService.init() was never called, so:
+  //   • flutter_local_notifications plugin was never initialized
+  //   • Hive box 'vocab_notif_data' was never opened → word bank & settings lost
+  //   • Notification channel 'vocab_learning' was never created
+  // All scheduleNext() / sendTestNotification() calls silently failed as a result.
+  try {
+    await VocabNotifService.instance.init();
+  } catch (e) {
+    debugPrint('[BeatFlow] VocabNotifService init failed: $e');
   }
 
   runApp(const BeatFlowApp());

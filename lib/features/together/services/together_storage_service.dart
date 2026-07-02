@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -11,14 +12,14 @@ import '../../../core/constants/cloudinary_config.dart';
 ///
 /// PROGRESSIVE UPLOAD STRATEGY:
 /// Instead of uploading the full file before guests can play, we:
-///   1. Upload first ~60 seconds as a separate "preview" chunk → guests start
-///      playing almost immediately (~3-5 sec wait instead of full-file wait)
+///   1. Upload first ~20 seconds as a separate "preview" chunk → guests start
+///      playing almost immediately (~5-8 sec wait instead of full-file wait)
 ///   2. Upload full file in background
 ///   3. When full upload completes, Firestore streamUrl is updated → guests
 ///      seamlessly switch to full URL (just_audio handles this transparently)
 ///
 /// IMPROVEMENTS (v2):
-///   A — Smart chunk size: bitrate-aware preview (~60 sec always, not fixed bytes)
+///   A — Smart chunk size: bitrate-aware preview (~20 sec always, not fixed bytes)
 ///   B — Upload retry: 3 retries with exponential backoff (1s, 3s, 9s)
 ///   C — Upload cancel: CancelToken pattern — _activeUploadCancel.cancel() aborts
 ///   E — Delete retry: if Vercel call fails, retry silently after 10 seconds
@@ -54,7 +55,7 @@ class TogetherStorageService {
   int _smartPreviewBytes(
     int fileSizeBytes, {
     int songDurationMs = 0,
-    int targetSeconds = 60,
+    int targetSeconds = 20, // ← reduced from 60→20s so guests start 3x faster
   }) {
     if (songDurationMs > 0) {
       // Use actual duration for accurate bitrate calculation
@@ -417,10 +418,176 @@ class TogetherStorageService {
   ///
   /// BUG-029: old guard `_kDeleteApiUrl.startsWith('YOUR_')` was always false
   /// because the URL is already set, so deletes were attempted unconditionally
-  /// (sending POST to a potentially undeployed endpoint). Guard removed — the
-  /// existing try-catch already handles 404/network errors gracefully.
-  ///
-  /// [E] If delete fails, retries once silently after 10 seconds.
+  // ── VIDEO UPLOAD ──────────────────────────────────────────────
+  // For Together sessions with local MP4 video files.
+  // Uses Cloudinary's "video" resource_type (auto-detects MP4 format).
+  // Same 2-phase progressive strategy as audio.
+
+  /// Phase 1 for video: upload first ~20s preview clip so guests can start
+  /// watching quickly while the full video uploads in background.
+  Future<String?> uploadVideoPreview({
+    required String sessionId,
+    required String filePath,
+    int songDurationMs = 0,
+  }) async {
+    _cancelCompleter = Completer<void>();
+    try {
+      final sourceFile = File(filePath);
+      if (!await sourceFile.exists()) return null;
+      final sourceSize = await sourceFile.length();
+      if (sourceSize == 0) return null;
+
+      // For video: use 20s chunk (same ratio as audio)
+      final chunkSize = _smartPreviewBytes(sourceSize, songDurationMs: songDurationMs);
+      final readSize  = chunkSize > sourceSize ? sourceSize : chunkSize;
+
+      final raf        = await sourceFile.open();
+      final previewBuf = Uint8List(readSize);
+      await raf.readInto(previewBuf);
+      await raf.close();
+
+      debugPrint('[Storage:Video] Preview chunk: ${(readSize / 1024 / 1024).toStringAsFixed(2)}MB');
+
+      if (_isCancelled) return null;
+
+      return await _uploadVideoBytesWithRetry(
+        bytes:     previewBuf,
+        sessionId: sessionId,
+        filePath:  filePath,
+        suffix:    '_preview',
+      );
+    } catch (e) {
+      debugPrint('[Storage:Video] ✗ uploadVideoPreview error: $e');
+      return null;
+    }
+  }
+
+  /// Phase 2 for video: upload full MP4 file.
+  Future<String?> uploadVideo({
+    required String sessionId,
+    required String filePath,
+    void Function(double)? onProgress,
+  }) async {
+    try {
+      final sourceFile = File(filePath);
+      if (!await sourceFile.exists()) return null;
+
+      if (_isCancelled) return null;
+
+      final bytes = await sourceFile.readAsBytes();
+
+      return await _uploadVideoBytesWithRetry(
+        bytes:     bytes,
+        sessionId: sessionId,
+        filePath:  filePath,
+        suffix:    '',
+        onProgress: onProgress,
+      );
+    } catch (e) {
+      debugPrint('[Storage:Video] ✗ uploadVideo error: $e');
+      return null;
+    }
+  }
+
+  /// Like _uploadBytesWithRetry but uses Cloudinary video resource_type.
+  Future<String?> _uploadVideoBytesWithRetry({
+    required Uint8List bytes,
+    required String sessionId,
+    required String filePath,
+    required String suffix,
+    void Function(double)? onProgress,
+    int maxRetries = 3,
+  }) async {
+    for (var attempt = 1; attempt <= maxRetries; attempt++) {
+      if (_isCancelled) return null;
+      final url = await _uploadVideoBytes(
+        bytes:     bytes,
+        sessionId: sessionId,
+        filePath:  filePath,
+        suffix:    suffix,
+        onProgress: onProgress,
+        cancelToken: _cancelCompleter,
+      );
+      if (url != null) return url;
+      if (attempt < maxRetries) {
+        final delay = Duration(seconds: pow(3, attempt - 1).toInt());
+        debugPrint('[Storage:Video] Retry $attempt/$maxRetries in ${delay.inSeconds}s');
+        await Future<void>.delayed(delay);
+      }
+    }
+    return null;
+  }
+
+  /// Uploads video bytes to Cloudinary using video resource_type.
+  Future<String?> _uploadVideoBytes({
+    required Uint8List bytes,
+    required String sessionId,
+    required String filePath,
+    required String suffix,
+    void Function(double)? onProgress,
+    Completer<void>? cancelToken,
+  }) async {
+    final safeId   = sessionId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final fname    = filePath.split('/').last;
+    final baseName = fname.contains('.')
+        ? fname.substring(0, fname.lastIndexOf('.'))
+        : fname;
+    final safeBase = baseName
+        .trim()
+        .replaceAll(RegExp(r'\s+'), '_')
+        .replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final publicId = 'together_video/$safeId/$safeBase$suffix';
+
+    onProgress?.call(0.05);
+
+    final client = http.Client();
+    try {
+      // Use Cloudinary auto/upload with video resource_type
+      const videoUploadUrl = 'https://api.cloudinary.com/v1_1/${CloudinaryConfig.cloudName}/video/upload';
+      final request = http.MultipartRequest('POST', Uri.parse(videoUploadUrl))
+        ..fields['upload_preset'] = _kUploadPreset
+        ..fields['public_id']     = publicId
+        ..fields['resource_type'] = 'video'
+        ..files.add(http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: '$safeBase$suffix.mp4',
+        ));
+
+      onProgress?.call(0.1);
+      debugPrint('[Storage:Video] Uploading ${(bytes.length / 1024 / 1024).toStringAsFixed(2)}MB...');
+
+      final uploadFuture = client.send(request).timeout(const Duration(minutes: 20));
+      final http.StreamedResponse streamed;
+      if (cancelToken != null) {
+        final result = await Future.any<dynamic>([
+          uploadFuture,
+          cancelToken.future.then((_) => null),
+        ]);
+        if (result == null) { client.close(); return null; }
+        streamed = result as http.StreamedResponse;
+      } else {
+        streamed = await uploadFuture;
+      }
+
+      onProgress?.call(0.9);
+      final body   = await streamed.stream.bytesToString();
+      onProgress?.call(0.95);
+      final parsed = jsonDecode(body) as Map<String, dynamic>;
+
+      if (streamed.statusCode == 200 && parsed.containsKey('secure_url')) {
+        final url = parsed['secure_url'] as String;
+        debugPrint('[Storage:Video] ✓ Upload OK → $url');
+        onProgress?.call(1.0);
+        return url;
+      }
+      debugPrint('[Storage:Video] ✗ Cloudinary error ${streamed.statusCode}: $body');
+      return null;
+    } finally {
+      client.close();
+    }
+  }
+
   Future<void> deleteSessionAudio(String sessionId) async {
     debugPrint('[Storage] Deleting session audio via Vercel: $sessionId');
     final success = await _tryDelete(sessionId);

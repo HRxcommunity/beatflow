@@ -13,6 +13,7 @@ class SongEntity extends Equatable {
   final int playCount;
   final bool isFavorite;
   final DateTime? lastPlayed;
+  final bool isVideo; // true for MP4 video files
 
   const SongEntity({
     required this.id,
@@ -27,6 +28,7 @@ class SongEntity extends Equatable {
     this.playCount = 0,
     this.isFavorite = false,
     this.lastPlayed,
+    this.isVideo = false,
   });
 
   SongEntity copyWith({
@@ -42,6 +44,7 @@ class SongEntity extends Equatable {
     int? playCount,
     bool? isFavorite,
     DateTime? lastPlayed,
+    bool? isVideo,
   }) {
     return SongEntity(
       id: id ?? this.id,
@@ -56,6 +59,7 @@ class SongEntity extends Equatable {
       playCount: playCount ?? this.playCount,
       isFavorite: isFavorite ?? this.isFavorite,
       lastPlayed: lastPlayed ?? this.lastPlayed,
+      isVideo: isVideo ?? this.isVideo,
     );
   }
 
@@ -67,5 +71,5 @@ class SongEntity extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, title, artist, album, duration, data, isFavorite, playCount];
+  List<Object?> get props => [id, title, artist, album, duration, data, isFavorite, playCount, isVideo];
 }

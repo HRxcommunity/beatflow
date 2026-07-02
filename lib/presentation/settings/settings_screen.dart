@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'settings_bloc.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/router/app_router.dart';
@@ -113,12 +114,8 @@ class SettingsScreen extends StatelessWidget {
 
               // ── About ─────────────────────────────────────────────
               const _SectionTitle('About'),
-              ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: const Text('Version'),
-                trailing: Text(AppConstants.appVersion,
-                    style: const TextStyle(color: Colors.white60)),
-              ),
+              // BUG-SET01 FIX: Read version dynamically from package_info_plus
+              const _VersionTile(),
               const _UpdateCheckTile(),
             ],
           );
@@ -693,6 +690,39 @@ class _TogetherBgSection extends StatelessWidget {
 }
 
 // ── Section title ─────────────────────────────────────────────────────────────
+
+// ── Version Tile ──────────────────────────────────────────────────────────────
+// BUG-SET01 FIX: Reads actual version from package_info_plus instead of
+// hardcoded AppConstants.appVersion (which showed blank because the const
+// was not rebuilding on theme changes — now dynamic via FutureBuilder).
+
+class _VersionTile extends StatelessWidget {
+  const _VersionTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snap) {
+        final version  = snap.data?.version     ?? AppConstants.appVersion;
+        final build    = snap.data?.buildNumber ?? '1';
+        return ListTile(
+          leading: const Icon(Icons.info_outline),
+          title: const Text('Version'),
+          trailing: Text(
+            'v$version ($build)',
+            style: TextStyle(
+              color      : Theme.of(context).colorScheme.primary.withOpacity(0.8),
+              fontFamily : 'Poppins',
+              fontSize   : 13,
+              fontWeight : FontWeight.w600,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
 
 // ── Update Check Tile ─────────────────────────────────────────────────────────
 // Settings screen mein manually update check karne ka button.

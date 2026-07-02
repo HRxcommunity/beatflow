@@ -143,6 +143,15 @@ class TogetherPlayYoutube extends TogetherEvent {
   List<Object?> get props => [track.videoId];
 }
 
+/// Like TogetherPlayYoutube but opens a YouTube video player instead of audio.
+/// Host and guests both see an embedded YouTube video player.
+class TogetherPlayYoutubeVideo extends TogetherEvent {
+  final YoutubeTrack track;
+  const TogetherPlayYoutubeVideo(this.track);
+  @override
+  List<Object?> get props => [track.videoId];
+}
+
 class TogetherShareYoutubeTrack extends TogetherEvent {
   final YoutubeTrack track;
   const TogetherShareYoutubeTrack(this.track);
@@ -332,6 +341,7 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
     on<TogetherSendFile>          (_onSendFile);
     on<TogetherSearchYoutube>     (_onSearchYoutube);
     on<TogetherPlayYoutube>       (_onPlayYoutube);
+    on<TogetherPlayYoutubeVideo>  (_onPlayYoutubeVideo);
     on<TogetherShareYoutubeTrack> (_onShareYoutubeTrack);
     on<_YoutubeSearchDone>        ((e, emit) => emit(state.copyWith(ytResults: e.results, ytSearching: false)));
     on<TogetherStartVideoCall>    (_onStartVideoCall);
@@ -444,6 +454,7 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
       songDurationMs: event.song.duration,
       positionMs:     event.positionMs,
       isPlaying:      event.isPlaying,
+      isVideo:        event.song.isVideo,
     );
 
     if (session == null) {
@@ -470,19 +481,30 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
     final isLocalFile = !event.song.data.startsWith('http');
 
     if (existingUrl == null && isLocalFile) {
-      _uploadSongAudio(
-        sessionId:     session.sessionId,
-        songId:        songId,
-        filePath:      event.song.data,
-        songDurationMs: event.song.duration,
-      );
+      if (event.song.isVideo) {
+        // MP4 video — use video upload pipeline
+        _uploadSongVideo(
+          sessionId:     session.sessionId,
+          songId:        songId,
+          filePath:      event.song.data,
+          songDurationMs: event.song.duration,
+        );
+      } else {
+        // Audio file — use existing audio upload pipeline
+        _uploadSongAudio(
+          sessionId:     session.sessionId,
+          songId:        songId,
+          filePath:      event.song.data,
+          songDurationMs: event.song.duration,
+        );
+      }
       // BUG-021 FIX: Only auto-search if the host hasn't already searched for
       // something deliberately. Previously this unconditionally overwrote any
       // existing YouTube search results the host was browsing.
       // BUG-Y02 FIX: only auto-search once per session; checking ytResults.isEmpty
       // caused an infinite loop when the search returned no results and the
       // host changed songs — each song change re-triggered a failing search.
-      if (!_ytAutoSearchDone) {
+      if (!_ytAutoSearchDone && !event.song.isVideo) {
         _ytAutoSearchDone = true;
         unawaited(_autoSearchYoutube(event.song.title, event.song.artist));
       }
@@ -511,7 +533,7 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
 
   // ── Upload audio ────────────────────────────────────────────
   /// PROGRESSIVE UPLOAD:
-  /// Phase 1 — Upload smart bitrate-aware chunk (≈60 sec) → guests start playing fast
+  /// Phase 1 — Upload smart bitrate-aware chunk (≈20 sec) → guests start playing fast
   /// Phase 2 — Upload full file in background → guests auto-switch to full URL
   void _uploadSongAudio({
     required String sessionId,
@@ -608,6 +630,109 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
       debugPrint('[Together] _progressiveUpload error: $e');
       if (!isClosed) add(const _TogetherUploadFailed());
     }
+  }
+
+  // ── Upload MP4 video (progressive, same 2-phase pattern) ────
+  void _uploadSongVideo({
+    required String sessionId,
+    required String songId,
+    required String filePath,
+    int songDurationMs = 0,
+  }) {
+    if (_uploadingNow.contains(songId)) {
+      debugPrint('[Together] Video upload already in progress for $songId');
+      return;
+    }
+    if (_uploadedUrls.containsKey(songId)) {
+      final url = _uploadedUrls[songId]!;
+      debugPrint('[Together] Reusing cached video URL for $songId');
+      _sessionService.updateStreamUrl(sessionId: sessionId, streamUrl: url);
+      return;
+    }
+
+    _uploadingNow.add(songId);
+    add(const _TogetherUploadProgress(0.05));
+    add(const _TogetherSetUploading());
+
+    unawaited(_progressiveVideoUpload(
+      sessionId:      sessionId,
+      songId:         songId,
+      filePath:       filePath,
+      songDurationMs: songDurationMs,
+    ));
+  }
+
+  Future<void> _progressiveVideoUpload({
+    required String sessionId,
+    required String songId,
+    required String filePath,
+    int songDurationMs = 0,
+  }) async {
+    // BUG-VID-BUFF FIX: Removed phase-1 preview for video uploads.
+    //
+    // The old approach uploaded only the first N bytes of the MP4 as phase 1.
+    // Most Android camera recordings write the moov atom (metadata header) at
+    // the END of the file. Uploading just the beginning gives Cloudinary an
+    // incomplete MP4 that lacks the moov atom. Even though Cloudinary attempts
+    // to transcode the partial clip, ExoPlayer (video_player_android) would
+    // stall in "buffering" because:
+    //   1. The preview clip is only a few seconds long — it ends and stalls.
+    //   2. The partial MP4 header may cause ExoPlayer to mis-detect the format.
+    //
+    // Fix: upload the full video first, then emit the stream URL once complete.
+    // We add fl_progressive to the Cloudinary delivery URL so the moov atom is
+    // served first (fast-start), allowing ExoPlayer to begin playback
+    // immediately without waiting to download the entire file.
+    //
+    // Guests see "Video uploading..." until the upload completes, which is
+    // better than an infinite buffering spinner on a broken partial stream.
+    try {
+      debugPrint('[Together] Video: uploading full MP4 for $songId (no partial preview)');
+      add(const _TogetherUploadProgress(0.05));
+
+      final fullUrl = await _storageService.uploadVideo(
+        sessionId:  sessionId,
+        filePath:   filePath,
+        onProgress: (p) {
+          if (!isClosed) add(_TogetherUploadProgress(0.05 + p * 0.95));
+        },
+      );
+
+      _uploadingNow.remove(songId);
+      if (isClosed) return;
+
+      if (fullUrl != null) {
+        // Insert fl_progressive transformation so Cloudinary delivers the moov
+        // atom first — this lets ExoPlayer start buffering immediately without
+        // needing to download the whole file before playing.
+        final streamUrl = _makeVideoStreamable(fullUrl);
+        debugPrint('[Together] Video upload done for $songId → $streamUrl');
+        _uploadedUrls[songId] = streamUrl;
+        _saveUrlToCache(songId, streamUrl);
+        add(_TogetherStreamUrlReady(songId, streamUrl));
+      } else {
+        debugPrint('[Together] Video upload failed for $songId');
+        add(const _TogetherUploadFailed());
+      }
+    } catch (e) {
+      _uploadingNow.remove(songId);
+      debugPrint('[Together] _progressiveVideoUpload error: $e');
+      if (!isClosed) add(const _TogetherUploadFailed());
+    }
+  }
+
+  /// Add fl_progressive to a Cloudinary video URL so the moov atom is served
+  /// at the start of the response (HTTP fast-start / moov relocation).
+  /// Input:  https://res.cloudinary.com/{cloud}/video/upload/together_video/...
+  /// Output: https://res.cloudinary.com/{cloud}/video/upload/fl_progressive/together_video/...
+  String _makeVideoStreamable(String url) {
+    const kMarker = '/video/upload/';
+    final idx = url.indexOf(kMarker);
+    if (idx == -1) return url; // not a Cloudinary video URL — return as-is
+    // Already has transformations after /video/upload/ — prepend fl_progressive
+    final afterMarker = url.substring(idx + kMarker.length);
+    if (afterMarker.startsWith('fl_progressive')) return url; // already added
+    return '${url.substring(0, idx + kMarker.length)}fl_progressive/$afterMarker';
   }
 
   // ── Stream URL ready ────────────────────────────────────────
@@ -885,16 +1010,27 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
       _uploadingNow.clear(); // old song upload is aborted
     }
 
-    // If song changed, trigger upload ONLY if no cached URL and it's a local file
+    // If song changed, trigger upload ONLY if no cached URL and it's a local file.
+    // BUG-VID02 FIX: use video upload pipeline for MP4 files so guests receive
+    // the video stream (not a broken audio-only chunk).
     if (newSongId != session.songId) {
       final isLocalFile = !event.song.data.startsWith('http');
       if (isLocalFile && !_uploadedUrls.containsKey(newSongId) && !_uploadingNow.contains(newSongId)) {
-        _uploadSongAudio(
-          sessionId:     session.sessionId,
-          songId:        newSongId,
-          filePath:      event.song.data,
-          songDurationMs: event.song.duration,
-        );
+        if (event.song.isVideo) {
+          _uploadSongVideo(
+            sessionId:      session.sessionId,
+            songId:         newSongId,
+            filePath:       event.song.data,
+            songDurationMs: event.song.duration,
+          );
+        } else {
+          _uploadSongAudio(
+            sessionId:     session.sessionId,
+            songId:        newSongId,
+            filePath:      event.song.data,
+            songDurationMs: event.song.duration,
+          );
+        }
       }
     }
 
@@ -912,6 +1048,9 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
         songDurationMs: event.song.duration,
         positionMs:     event.positionMs,
         isPlaying:      event.isPlaying,
+        // BUG-VID03 FIX: pass isVideo so guests see the video card
+        // (was always defaulting to false, hiding the video player card)
+        isVideo:        event.song.isVideo,
       );
     } catch (e) {
       debugPrint('[Together] pushPlayback error: $e');
@@ -1227,6 +1366,44 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
               ? 'Network error. Check your internet connection.'
               : 'YouTube play failed. Please try again.';
       emit(state.copyWith(error: friendlyError));
+    } finally {
+      emit(state.copyWith(ytLoading: false));
+    }
+  }
+
+  // ── YouTube VIDEO play (Together — host shares video to session) ──────
+  /// Pushes videoId + isVideo=true to Firestore so all guests also see the
+  /// YouTube video player for this track (no audio stream needed).
+  Future<void> _onPlayYoutubeVideo(
+      TogetherPlayYoutubeVideo event, Emitter<TogetherState> emit) async {
+    final session = state.session;
+    if (session == null) return;
+
+    final track = event.track;
+    emit(state.copyWith(ytLoading: true, clearError: true));
+
+    try {
+      // Push isVideo=true to Firestore — guests detect this and open
+      // a YouTube WebView player with the same videoId.
+      // No audio stream URL needed: each guest's WebView plays YouTube directly.
+      await _sessionService.pushPlaybackState(
+        sessionId:      session.sessionId,
+        songId:         'yt:${track.videoId}',
+        songTitle:      track.title,
+        songArtist:     track.artist,
+        songData:       'yt:${track.videoId}',
+        streamUrl:      'yt:${track.videoId}',
+        songDurationMs: track.duration.inMilliseconds,
+        positionMs:     0,
+        isPlaying:      true,
+        isVideo:        true,
+      );
+
+      debugPrint('[Together] YouTube video pushed: ${track.title} (${track.videoId})');
+    } catch (e) {
+      debugPrint('[Together] YouTube video push error: $e');
+      emit(state.copyWith(
+          error: 'Could not share YouTube video. Check connection.'));
     } finally {
       emit(state.copyWith(ytLoading: false));
     }

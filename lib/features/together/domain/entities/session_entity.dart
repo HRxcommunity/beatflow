@@ -196,6 +196,9 @@ class SessionEntity extends Equatable {
   // ── Video call ───────────────────────────────────────────────
   final String? agoraChannel;   // non-null when call is live
   final bool callActive;
+  // ── Video content ─────────────────────────────────────────────
+  // true when shared content is a video file (local MP4 or YouTube video mode)
+  final bool isVideo;
 
   const SessionEntity({
     required this.sessionId,
@@ -218,6 +221,7 @@ class SessionEntity extends Equatable {
     this.pendingHostRequest,
     this.agoraChannel,
     this.callActive = false,
+    this.isVideo = false,
   });
 
   bool get hasStreamUrl => streamUrl.isNotEmpty && streamUrl.startsWith('http');
@@ -250,6 +254,7 @@ class SessionEntity extends Equatable {
     String? agoraChannel,
     bool? callActive,
     bool clearAgoraChannel = false,
+    bool? isVideo,
   }) {
     return SessionEntity(
       sessionId:          sessionId       ?? this.sessionId,
@@ -274,6 +279,7 @@ class SessionEntity extends Equatable {
           : (pendingHostRequest ?? this.pendingHostRequest),
       agoraChannel:   clearAgoraChannel ? null : (agoraChannel ?? this.agoraChannel),
       callActive:     callActive ?? this.callActive,
+      isVideo:        isVideo ?? this.isVideo,
     );
   }
 
@@ -285,6 +291,6 @@ class SessionEntity extends Equatable {
         sessionId, songId, streamUrl, positionMs, isPlaying,
         updatedAt, members.length, chatMessages.length,
         pendingHostRequest?.status, ownerId,
-        agoraChannel, callActive, isEnding,
+        agoraChannel, callActive, isEnding, isVideo,
       ];
 }

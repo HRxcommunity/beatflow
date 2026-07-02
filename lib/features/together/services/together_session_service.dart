@@ -34,6 +34,7 @@ class TogetherSessionService {
     required int songDurationMs,
     required int positionMs,
     required bool isPlaying,
+    bool isVideo = false,
   }) async {
     try {
       String code;
@@ -62,6 +63,7 @@ class TogetherSessionService {
         songDurationMs: songDurationMs,
         positionMs:     positionMs,
         isPlaying:      isPlaying,
+        isVideo:        isVideo,
         updatedAt:         Timestamp.now(),
         playbackUpdatedAt: Timestamp.now(), // BUG-S01 FIX
         members:           [ownerMember.toMap()],
@@ -202,6 +204,7 @@ class TogetherSessionService {
     required int songDurationMs,
     required int positionMs,
     required bool isPlaying,
+    bool isVideo = false,
   }) async {
     try {
       // BUG-002: always write streamUrl — if null/empty, write '' to clear the
@@ -216,6 +219,7 @@ class TogetherSessionService {
         'songDurationMs': songDurationMs,
         'positionMs':     positionMs,
         'isPlaying':      isPlaying,
+        'isVideo':        isVideo,
         'updatedAt':      Timestamp.now(),
         'playbackUpdatedAt': Timestamp.now(), // BUG-S01 FIX: separate playback anchor
       };

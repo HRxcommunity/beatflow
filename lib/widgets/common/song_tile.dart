@@ -80,6 +80,21 @@ class SongTile extends StatelessWidget {
                         ),
                         child: Icon(Icons.equalizer_rounded, color: accent, size: 22),
                       ),
+                    // Video badge — bottom-right corner
+                    if (song.isVideo && !isPlaying)
+                      Positioned(
+                        bottom: 2,
+                        right: 2,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.75),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Icon(Icons.videocam_rounded,
+                              color: Colors.white, size: 10),
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(width: 12),

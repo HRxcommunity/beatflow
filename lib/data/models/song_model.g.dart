@@ -28,13 +28,14 @@ class SongModelAdapter extends TypeAdapter<SongModel> {
       ..dateAdded = fields[8] as DateTime?
       ..playCount = fields[9] as int
       ..isFavorite = fields[10] as bool
-      ..lastPlayed = fields[11] as DateTime?;
+      ..lastPlayed = fields[11] as DateTime?
+      ..isVideo = fields[12] as bool? ?? false;
   }
 
   @override
   void write(BinaryWriter writer, SongModel obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -58,7 +59,9 @@ class SongModelAdapter extends TypeAdapter<SongModel> {
       ..writeByte(10)
       ..write(obj.isFavorite)
       ..writeByte(11)
-      ..write(obj.lastPlayed);
+      ..write(obj.lastPlayed)
+      ..writeByte(12)
+      ..write(obj.isVideo);
   }
 
   @override

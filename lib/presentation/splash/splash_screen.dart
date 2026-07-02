@@ -128,9 +128,11 @@ class _SplashScreenState extends State<SplashScreen>
   Future<bool> _requestAllPermissions() async {
     final statuses = await [
       Permission.audio,
+      Permission.videos,   // Android 13+: READ_MEDIA_VIDEO — MP4 files ke liye
       Permission.storage,
     ].request();
-    return (statuses[Permission.audio]?.isGranted ?? false) ||
+    return (statuses[Permission.audio]?.isGranted  ?? false) ||
+           (statuses[Permission.videos]?.isGranted ?? false) ||
            (statuses[Permission.storage]?.isGranted ?? false);
   }
 

@@ -41,6 +41,9 @@ class SongModel extends HiveObject {
   @HiveField(11)
   DateTime? lastPlayed;
 
+  @HiveField(12)
+  bool isVideo = false;
+
   SongModel();
 
   factory SongModel.fromEntity(SongEntity e) => SongModel()
@@ -55,7 +58,8 @@ class SongModel extends HiveObject {
     ..dateAdded = e.dateAdded
     ..playCount = e.playCount
     ..isFavorite = e.isFavorite
-    ..lastPlayed = e.lastPlayed;
+    ..lastPlayed = e.lastPlayed
+    ..isVideo = e.isVideo;
 
   SongEntity toEntity() => SongEntity(
         id: id,
@@ -70,5 +74,6 @@ class SongModel extends HiveObject {
         playCount: playCount,
         isFavorite: isFavorite,
         lastPlayed: lastPlayed,
+        isVideo: isVideo,
       );
 }

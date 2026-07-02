@@ -24,6 +24,7 @@ class SessionModel {
   final Map<String, dynamic>? pendingHostRequest;
   final String? agoraChannel;
   final bool callActive;
+  final bool isVideo; // true when content is video (local MP4 or YouTube video)
 
   SessionModel({
     required this.sessionId,
@@ -46,6 +47,7 @@ class SessionModel {
     this.pendingHostRequest,
     this.agoraChannel,
     this.callActive = false,
+    this.isVideo = false,
   });
 
   factory SessionModel.fromFirestore(DocumentSnapshot doc) {
@@ -81,6 +83,7 @@ class SessionModel {
           : null,
       agoraChannel: d['agoraChannel'] as String?,
       callActive:   d['callActive']   as bool? ?? false,
+      isVideo:      d['isVideo']      as bool? ?? false,
     );
   }
 
@@ -105,6 +108,7 @@ class SessionModel {
           'pendingHostRequest': pendingHostRequest,
         if (agoraChannel != null) 'agoraChannel': agoraChannel,
         'callActive': callActive,
+        'isVideo':    isVideo,
       };
 
   SessionEntity toEntity() => SessionEntity(
@@ -130,5 +134,6 @@ class SessionModel {
             : null,
         agoraChannel: agoraChannel,
         callActive:   callActive,
+        isVideo:      isVideo,
       );
 }

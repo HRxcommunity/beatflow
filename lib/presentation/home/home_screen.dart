@@ -257,6 +257,45 @@ class _HomeTab extends StatelessWidget {
             ),
           ),
           actions: [
+            // ── Study AI button ──
+            Container(
+              margin: const EdgeInsets.only(right: 6),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF10B981).withOpacity(0.20),
+                    const Color(0xFF10B981).withOpacity(0.08),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: const Color(0xFF10B981).withOpacity(0.40),
+                ),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => context.push(AppRouter.studyAi),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('📚', style: TextStyle(fontSize: 13)),
+                      SizedBox(width: 4),
+                      Text(
+                        'Study AI',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF10B981),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             // ── AI Vocab Chat button ──
             Container(
               margin: const EdgeInsets.only(right: 6),
@@ -293,49 +332,6 @@ class _HomeTab extends StatelessWidget {
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // ── Study AI button ──
-            Container(
-              margin: const EdgeInsets.only(right: 6),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppTheme.accentCyan.withOpacity(0.2),
-                    AppTheme.accentCyan.withOpacity(0.08),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: AppTheme.accentCyan.withOpacity(0.4),
-                ),
-              ),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () => context.push(AppRouter.studyAi),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.school_rounded,
-                        size: 15,
-                        color: AppTheme.accentCyan,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Study AI',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.accentCyan,
                         ),
                       ),
                     ],
@@ -718,6 +714,22 @@ class _SongsTab extends StatelessWidget {
                           song: song,
                           isPlaying: isCurrentSong,
                           onTap: () {
+                            // MP4 video → register with PlayerBloc (audio_service)
+                            // for background play, THEN open the video player screen.
+                            // BUG-VID01 FIX: previously only VideoPlayerScreen was
+                            // opened, bypassing just_audio/audio_service entirely —
+                            // so audio stopped when the phone locked.
+                            if (song.isVideo) {
+                              final pb = ctx.read<PlayerBloc>();
+                              if (!isCurrentSong) {
+                                pb.add(PlayerPlay(
+                                  queue: state.filteredSongs,
+                                  index: i,
+                                ));
+                              }
+                              context.push(AppRouter.videoPlayer, extra: song);
+                              return;
+                            }
                             final pb = ctx.read<PlayerBloc>();
                             if (isCurrentSong) {
                               if (pb.state.isPlaying) {

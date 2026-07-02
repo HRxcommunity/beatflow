@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 class AppConstants {
   static const String appName = 'BeatFlow';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '1.0.1';
 
   // ── OTA Update (GitHub Releases) ────────────────────────────────────────
   // Yahan apna GitHub username aur repo name daalo.
   // Release workflow automatically ek APK GitHub Release pe upload karega.
-  static const String githubOwner = 'HRxcommunity'; // ← CHANGE THIS
-  static const String githubRepo  = 'beatflow';    // ← repo name
+  static const String githubOwner = 'HRxcommunity';
+  static const String githubRepo  = 'beatflow';              // ← repo name
 
   // Hive box names
   static const String songsBox = 'songs';

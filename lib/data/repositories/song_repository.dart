@@ -35,7 +35,7 @@ class SongRepository {
   }
 
   Future<List<SongEntity>> rescanLibrary({bool filterShortClips = true}) async {
-    final songs = await _scanner.scanDeviceSongs(filterShortClips: filterShortClips);
+    final songs = await _scanner.scanAll(filterShortClips: filterShortClips);
 
     // Preserve play count & favorite from previous scan — snapshot BEFORE clear
     final Map<String, SongModel> previous = {};

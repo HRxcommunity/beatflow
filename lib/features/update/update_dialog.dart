@@ -276,10 +276,14 @@ class _UpdateDialogState extends State<_UpdateDialog> {
     setState(() => _downloading = true);
     try {
       final uri = Uri.tryParse(widget.info.downloadUrl);
-      if (uri != null && await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (uri == null) {
+        throw Exception('Invalid download URL');
       }
-      // Required update: dialog khuli rehti hai — user ko update karna padega
+      // BUG-UPD01 FIX: Removed canLaunchUrl check — it returns false on Android 11+
+      // for https:// URLs unless <queries> intent is declared in AndroidManifest.
+      // Direct launchUrl works correctly without the pre-check.
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+
       if (mounted && !widget.info.isRequired) {
         Navigator.of(context).pop();
       }
@@ -287,7 +291,10 @@ class _UpdateDialogState extends State<_UpdateDialog> {
       debugPrint('[UpdateDialog] launch failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open download link')),
+          const SnackBar(
+            content: Text('Browser open nahi hua. Manually check karo: github.com'),
+            duration: Duration(seconds: 4),
+          ),
         );
       }
     } finally {

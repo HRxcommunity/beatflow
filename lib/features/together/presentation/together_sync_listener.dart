@@ -533,6 +533,10 @@ class _TogetherSyncListenerState extends State<TogetherSyncListener>
         albumArtist: '',
         duration:    session.songDurationMs,
         data:        session.streamUrl,
+        // BUG-VID-GUEST FIX: was always false → guest PlayerBloc didn't know
+        // it was playing video. Now correctly mirrors session.isVideo so the
+        // player screen and routing logic see the right media type.
+        isVideo:     session.isVideo,
       );
 
   Future<SongEntity?> _findLocalSong(SongRepository repo, SessionEntity session) async {

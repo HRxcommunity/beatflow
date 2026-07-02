@@ -1,7 +1,7 @@
 name: beatflow
 description: BeatFlow — Premium Music Player with BeatFlow Together.
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -63,6 +63,12 @@ dependencies:
   url_launcher: ^6.3.0
   http: ^1.2.2
 
+  # Study AI — PDF text extraction (Syncfusion community license, free up to $1M revenue)
+  syncfusion_flutter_pdf: ^25.1.0
+
+  # Video playback — local MP4 files
+  video_player: ^2.9.1
+
   # In-app browser — HRxBrowse (privacy mode, ad-block, bookmarks)
   webview_flutter: ^4.7.0
 
@@ -73,10 +79,6 @@ dependencies:
   # 18.0.0+ removed uiLocalNotificationDateInterpretation/changed show() to named args)
   flutter_local_notifications: ^17.2.4
   timezone: ^0.9.0
-
-  # Study AI — PDF text extraction for quiz generation
-  # Pinned to 29.1.38 — 29.1.39+ requires Dart SDK >=3.7.0, this project is on 3.6.2
-  syncfusion_flutter_pdf: ^29.1.38
 
 dev_dependencies:
   flutter_test:

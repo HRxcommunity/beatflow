@@ -15,6 +15,8 @@ import 'together_screen_chat.dart';
 import 'games/games_panel.dart';
 
 import '../../youtube/youtube_search_sheet.dart';
+import 'package:video_player/video_player.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 class TogetherScreen extends StatefulWidget {
   const TogetherScreen({super.key});
@@ -1602,8 +1604,8 @@ class _ActiveSessionScreenState extends State<_ActiveSessionScreen>
                                   myUid:    widget.state.uid ?? ''),
                               const SizedBox(height: 16),
 
-                              // ── Now Playing + Controls ──
-                              _NowPlayingCard(
+                              // ── Unified Media Player (audio + video + YouTube) ──
+                              _TogetherUnifiedPlayer(
                                 session:    session,
                                 accent:     accent,
                                 isOwner:    isOwner,
@@ -1612,8 +1614,8 @@ class _ActiveSessionScreenState extends State<_ActiveSessionScreen>
 
                               const SizedBox(height: 16),
 
-                              // ── YouTube in Together ──
-                              _YoutubeInTogetherCard(
+                              // ── YouTube Search Card ──
+                              _YoutubeSearchCard(
                                 accent:  accent,
                                 isOwner: isOwner,
                               ),
@@ -2166,20 +2168,22 @@ class _MembersCard extends StatelessWidget {
   }
 }
 
-// ── Now Playing Card (with host play/pause controls) ──────────
+// ══════════════════════════════════════════════════════════════
+//  _TogetherUnifiedPlayer
+//  Single adaptive player for audio (MP3), local MP4 video,
+//  and YouTube — all in one card with shared controls.
+//  Replaces: _NowPlayingCard + _TogetherVideoCard + _SyncedGuestVideoPlayer
+// ══════════════════════════════════════════════════════════════
 
-// ── FIX: NowPlayingCard is now StatefulWidget with a live 500ms timer
-//  Host  → reads position from PlayerBloc (actual audio playhead)
-//  Guest → calculates positionMs + elapsed_since_updatedAt (Firestore clock)
-//  This ensures the displayed time MOVES even though Firestore positionMs
-//  is only updated on seek/song-change, not continuously.
-class _NowPlayingCard extends StatefulWidget {
+enum _MediaType { audio, localVideo, youtubeVideo }
+
+class _TogetherUnifiedPlayer extends StatefulWidget {
   final SessionEntity session;
   final Color accent;
   final bool isOwner;
   final List<double> barHeights;
 
-  const _NowPlayingCard({
+  const _TogetherUnifiedPlayer({
     required this.session,
     required this.accent,
     required this.isOwner,
@@ -2187,51 +2191,92 @@ class _NowPlayingCard extends StatefulWidget {
   });
 
   @override
-  State<_NowPlayingCard> createState() => _NowPlayingCardState();
+  State<_TogetherUnifiedPlayer> createState() => _TogetherUnifiedPlayerState();
 }
 
-class _NowPlayingCardState extends State<_NowPlayingCard> {
+class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
+  // ── Position ticker ──────────────────────────────────────────
   Timer? _posTimer;
   int _livePositionMs = 0;
 
+  // ── Local video ─────────────────────────────────────────────
+  VideoPlayerController? _vidCtrl;
+  bool _vidReady = false;
+  String _loadedVidUrl = '';
+  Timer? _bufferStallTimer;
+
+  // ── YouTube WebView ──────────────────────────────────────────
+  WebViewController? _webCtrl;
+  bool _webLoading = true;
+  String _loadedYtId = '';
+
+  // ── Content-type detection ────────────────────────────────────
+  _MediaType _getMediaType(SessionEntity s) {
+    final isYt = s.streamUrl.startsWith('yt:') || s.songData.startsWith('yt:');
+    if (isYt) return _MediaType.youtubeVideo;
+    if (s.isVideo) return _MediaType.localVideo;
+    return _MediaType.audio;
+  }
+
+  _MediaType get _mediaType => _getMediaType(widget.session);
+
+  String get _youtubeId {
+    final d = widget.session.songData;
+    if (d.startsWith('yt:')) return d.substring(3);
+    final u = widget.session.streamUrl;
+    if (u.startsWith('yt:')) return u.substring(3);
+    return '';
+  }
+
+  // ── Elapsed-corrected position ────────────────────────────────
+  int _calcExpectedMs(SessionEntity s) {
+    if (!s.isPlaying) return s.positionMs;
+    if (s.songDurationMs <= 0) return s.positionMs;
+    final elapsed = DateTime.now()
+        .difference(s.effectivePlaybackUpdatedAt)
+        .inMilliseconds;
+    return (s.positionMs + elapsed.clamp(0, s.songDurationMs))
+        .clamp(0, s.songDurationMs);
+  }
+
+  // ── Lifecycle ─────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
     _livePositionMs = widget.session.positionMs;
     _startTimer();
+    _initMedia(widget.session);
   }
 
   @override
-  void didUpdateWidget(_NowPlayingCard old) {
+  void didUpdateWidget(_TogetherUnifiedPlayer old) {
     super.didUpdateWidget(old);
-    // On session update (seek/song change/pause) — reset live position
-    if (old.session.positionMs  != widget.session.positionMs ||
-        old.session.songId       != widget.session.songId      ||
-        old.session.isPlaying    != widget.session.isPlaying) {
-      // Restart timer so elapsed calculation starts fresh from new anchor
-      // BUG-S05 FIX: immediately update position so guest UI doesn't show
-      // stale position for up to 500ms while waiting for next timer tick.
-      setState(() => _livePositionMs = widget.session.positionMs);
+    final s = widget.session;
+    final o = old.session;
+
+    // Reset live position on seek / song change / pause
+    if (o.positionMs != s.positionMs ||
+        o.songId != s.songId ||
+        o.isPlaying != s.isPlaying) {
+      setState(() => _livePositionMs = s.positionMs);
       _startTimer();
     }
+
+    // Handle media changes
+    _syncMedia(s, o);
   }
 
+  // ── Timer ─────────────────────────────────────────────────────
   void _startTimer() {
     _posTimer?.cancel();
     _posTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (!mounted) return;
       final dur = widget.session.songDurationMs;
-
       int newPos;
       if (widget.isOwner) {
-        // Host: read actual audio playhead from PlayerBloc
         newPos = context.read<PlayerBloc>().state.position.inMilliseconds;
       } else {
-        // Guest: reconstruct position from Firestore anchor + elapsed time
         if (widget.session.isPlaying) {
-          // BUG-S01 FIX: use effectivePlaybackUpdatedAt (anchored to
-          // play/pause/seek only) so guest joins don't corrupt the
-          // elapsed-time position estimate shown in the UI.
           final elapsed = DateTime.now()
               .difference(widget.session.effectivePlaybackUpdatedAt)
               .inMilliseconds;
@@ -2240,331 +2285,786 @@ class _NowPlayingCardState extends State<_NowPlayingCard> {
           newPos = widget.session.positionMs;
         }
       }
-
       if (dur > 0) newPos = newPos.clamp(0, dur);
       if (mounted) setState(() => _livePositionMs = newPos);
     });
   }
 
+  // ── Media init / sync ─────────────────────────────────────────
+  void _initMedia(SessionEntity s) {
+    switch (_getMediaType(s)) {
+      case _MediaType.localVideo:
+        if (s.hasStreamUrl) _initVideoPlayer(s.streamUrl);
+        break;
+      case _MediaType.youtubeVideo:
+        final id = _youtubeId;
+        if (id.isNotEmpty) _initYouTubeWebView(id);
+        break;
+      case _MediaType.audio:
+        break;
+    }
+  }
+
+  void _syncMedia(SessionEntity curr, SessionEntity prev) {
+    final type = _getMediaType(curr);
+
+    if (type == _MediaType.localVideo) {
+      if (curr.hasStreamUrl && curr.streamUrl != _loadedVidUrl) {
+        _vidCtrl?.dispose();
+        setState(() { _vidReady = false; _vidCtrl = null; });
+        _initVideoPlayer(curr.streamUrl);
+        return;
+      }
+      _handleVideoSync(curr);
+    } else if (type == _MediaType.youtubeVideo) {
+      final newId = _youtubeId;
+      if (newId.isNotEmpty && newId != _loadedYtId) {
+        _initYouTubeWebView(newId);
+      }
+    }
+  }
+
+  // ── Local MP4 player ─────────────────────────────────────────
+  Future<void> _initVideoPlayer(String url) async {
+    if (url.isEmpty || !url.startsWith('http')) return;
+    _loadedVidUrl = url;
+
+    // BUG-VID-AUDIOFOCUS FIX: mixWithOthers=true tells ExoPlayer NOT to
+    // request AUDIOFOCUS_GAIN. Without this, VideoPlayerController steals
+    // audio focus from just_audio → just_audio pauses → PlayerBloc emits
+    // isPlaying=false → TogetherSyncListener pushes isPlaying=false to
+    // Firestore → video gets paused immediately after starting → endless
+    // buffering loop.  Audio stays in just_audio (ctrl is muted below).
+    final ctrl = VideoPlayerController.networkUrl(
+      Uri.parse(url),
+      httpHeaders: const {
+        'Connection': 'keep-alive',
+        'Accept-Ranges': 'bytes',
+      },
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    _vidCtrl = ctrl;
+    try {
+      await ctrl.initialize();
+      // Muted: audio comes from PlayerBloc / just_audio on the same URL
+      await ctrl.setVolume(0.0);
+      ctrl.addListener(_onVideoUpdate);
+      if (!mounted) return;
+      setState(() => _vidReady = true);
+      final posMs = _calcExpectedMs(widget.session);
+      await ctrl.seekTo(Duration(milliseconds: posMs));
+      if (widget.session.isPlaying) await ctrl.play();
+    } catch (e) {
+      debugPrint('[UnifiedPlayer] Video init error: $e');
+    }
+  }
+
+  void _onVideoUpdate() {
+    if (!mounted) return;
+    setState(() {});
+
+    // Buffer-stall recovery: if buffering for > 8s while supposed to play,
+    // seek forward 500ms to nudge ExoPlayer out of the stall.
+    final ctrl = _vidCtrl;
+    if (ctrl == null || !_vidReady) return;
+
+    if (ctrl.value.isBuffering && widget.session.isPlaying) {
+      _bufferStallTimer ??= Timer(const Duration(seconds: 8), () async {
+        if (!mounted) { _bufferStallTimer = null; return; }
+        final c = _vidCtrl;
+        if (c != null && c.value.isBuffering) {
+          final pos = c.value.position;
+          await c.seekTo(pos + const Duration(milliseconds: 500));
+          debugPrint('[UnifiedPlayer] Buffer stall → nudge seek to ${pos.inSeconds}s');
+        }
+        _bufferStallTimer = null;
+      });
+    } else {
+      _bufferStallTimer?.cancel();
+      _bufferStallTimer = null;
+    }
+  }
+
+  void _handleVideoSync(SessionEntity s) {
+    final ctrl = _vidCtrl;
+    if (ctrl == null || !_vidReady) return;
+
+    // BUG-VID-BUFF FIX: removed the old `!ctrl.value.isBuffering` guard.
+    // Calling play() while the video is buffering is intentional — ExoPlayer
+    // will begin playback as soon as the buffer is ready.  The old condition
+    // meant play() was *never* called during the initial buffer phase, so
+    // the video stayed frozen on "Buffering…" forever.
+    if (s.isPlaying && !ctrl.value.isPlaying) {
+      ctrl.play();
+    } else if (!s.isPlaying && ctrl.value.isPlaying) {
+      ctrl.pause();
+    }
+
+    // Drift correction: skip during buffering (position reads are unreliable
+    // mid-buffer and seeking into an unbuffered position stalls further).
+    if (s.isPlaying && !ctrl.value.isBuffering) {
+      final expected = _calcExpectedMs(s);
+      final actual   = ctrl.value.position.inMilliseconds;
+      if ((expected - actual).abs() > 3000) {
+        debugPrint('[UnifiedPlayer] Drift ${(expected - actual).abs()}ms → seeking');
+        ctrl.seekTo(Duration(milliseconds: expected));
+      }
+    }
+  }
+
+  // ── YouTube WebView ────────────────────────────────────────────
+  void _initYouTubeWebView(String videoId) {
+    _loadedYtId = videoId;
+    if (mounted) setState(() { _webLoading = true; });
+
+    const ua = 'Mozilla/5.0 (Linux; Android 10; Mobile) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/120.0.0.0 Mobile Safari/537.36';
+
+    final id  = Uri.encodeComponent(videoId);
+    final url = 'https://www.youtube-nocookie.com/embed/$id'
+        '?autoplay=1&controls=1&modestbranding=1&rel=0&playsinline=1';
+
+    final ctrl = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setUserAgent(ua)
+      ..setNavigationDelegate(NavigationDelegate(
+        onPageFinished: (_) {
+          if (mounted) setState(() => _webLoading = false);
+        },
+        onWebResourceError: (e) =>
+            debugPrint('[UnifiedPlayer] YT WebView error: ${e.description}'),
+        onNavigationRequest: (req) {
+          if (req.url.contains('youtube') || req.url.contains('youtu.be')) {
+            return NavigationDecision.navigate;
+          }
+          return NavigationDecision.prevent;
+        },
+      ))
+      ..loadRequest(
+        Uri.parse(url),
+        headers: {'Referer': 'https://www.youtube.com/'},
+      );
+
+    if (mounted) setState(() => _webCtrl = ctrl);
+  }
+
+  // ── Dispose ────────────────────────────────────────────────────
   @override
   void dispose() {
     _posTimer?.cancel();
+    _bufferStallTimer?.cancel();
+    _vidCtrl?.removeListener(_onVideoUpdate);
+    _vidCtrl?.dispose();
     super.dispose();
   }
 
+  // ── Helpers ────────────────────────────────────────────────────
+  String _fmt(int ms) {
+    final cap = widget.session.songDurationMs > 0
+        ? widget.session.songDurationMs
+        : ms;
+    final d = Duration(milliseconds: ms.clamp(0, cap));
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return h > 0 ? '$h:$m:$s' : '$m:$s';
+  }
+
+  IconData get _mediaIcon {
+    switch (_mediaType) {
+      case _MediaType.audio:       return Icons.music_note_rounded;
+      case _MediaType.localVideo:  return Icons.videocam_rounded;
+      case _MediaType.youtubeVideo:return Icons.smart_display_rounded;
+    }
+  }
+
+  // ── Build ──────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final posMs    = _livePositionMs;
-    final durMs    = widget.session.songDurationMs;
-    final progress = durMs > 0 ? posMs / durMs : 0.0;
-
     final session  = widget.session;
     final accent   = widget.accent;
-    final isOwner  = widget.isOwner;
-    final barHeights = widget.barHeights;
+    final posMs    = _livePositionMs;
+    final durMs    = session.songDurationMs;
+    final progress = durMs > 0 ? (posMs / durMs).clamp(0.0, 1.0) : 0.0;
+    final isYt     = _mediaType == _MediaType.youtubeVideo;
 
-    String fmt(int ms) {
-      final d = Duration(milliseconds: ms.clamp(0, durMs > 0 ? durMs : ms));
-      final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-      final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-      return '$m:$s';
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.bgCard,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.07), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.music_note_rounded, color: accent, size: 16),
-              const SizedBox(width: 6),
-              const Text(
-                'NOW PLAYING',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 2,
-                  color: AppTheme.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              // Mini waveform
-              SizedBox(
-                width: 60, height: 20,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: List.generate(
-                    min(barHeights.length, 12),
-                    (i) {
-                      final h = session.isPlaying
-                          ? 20.0 * barHeights[i]
-                          : 4.0;
-                      return AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeInOut,
-                        width: 2.5,
-                        height: h.clamp(3.0, 20.0),
-                        margin: const EdgeInsets.symmetric(horizontal: 0.8),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(2),
-                          color: accent.withOpacity(
-                              session.isPlaying ? 0.9 : 0.3),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          Text(
-            _sanitizeTitle(session.songTitle),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
-              fontWeight: FontWeight.w700,
-              fontSize: 17,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            session.songArtist,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 13,
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
-              backgroundColor: Colors.white.withOpacity(0.08),
-              valueColor: AlwaysStoppedAnimation<Color>(accent),
-              minHeight: 4,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(fmt(posMs),
-                  style: const TextStyle(
-                      fontSize: 11, color: AppTheme.textSecondary)),
-              Row(
+    return BlocListener<TogetherBloc, TogetherState>(
+      listenWhen: (prev, curr) {
+        final p = prev.session;
+        final c = curr.session;
+        if (c == null) return false;
+        return p?.isPlaying  != c.isPlaying  ||
+               p?.positionMs != c.positionMs  ||
+               p?.streamUrl  != c.streamUrl;
+      },
+      listener: (_, state) {
+        if (state.session != null && _mediaType == _MediaType.localVideo) {
+          _handleVideoSync(state.session!);
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.bgCard,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withOpacity(0.07), width: 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Row(
                 children: [
-                  Container(
-                    width: 8, height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: session.isPlaying
-                          ? const Color(0xFF22C55E)
-                          : Colors.orange,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    session.isPlaying ? 'Playing' : 'Paused',
+                  Icon(_mediaIcon, color: accent, size: 15),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'NOW PLAYING',
                     style: TextStyle(
-                      fontSize: 11,
-                      color: session.isPlaying
-                          ? const Color(0xFF22C55E)
-                          : Colors.orange,
+                      fontSize: 10,
+                      letterSpacing: 2,
+                      color: AppTheme.textSecondary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+                  if (isYt) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF0000).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text('YouTube',
+                          style: TextStyle(
+                              color: Color(0xFFFF0000),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5)),
+                    ),
+                  ],
+                  const Spacer(),
+                  // Mini waveform (audio mode only)
+                  if (_mediaType == _MediaType.audio)
+                    SizedBox(
+                      width: 60, height: 20,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: List.generate(
+                          min(widget.barHeights.length, 12),
+                          (i) {
+                            final h = session.isPlaying
+                                ? 20.0 * widget.barHeights[i]
+                                : 4.0;
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeInOut,
+                              width: 2.5,
+                              height: h.clamp(3.0, 20.0),
+                              margin: const EdgeInsets.symmetric(horizontal: 0.8),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(2),
+                                color: accent.withOpacity(
+                                    session.isPlaying ? 0.9 : 0.3),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
                 ],
               ),
-              Text(fmt(durMs),
-                  style: const TextStyle(
-                      fontSize: 11, color: AppTheme.textSecondary)),
-            ],
-          ),
+            ),
 
-          // ── HOST PLAYBACK CONTROLS ──
-          if (isOwner) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: accent.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: accent.withOpacity(0.18)),
-              ),
+            // ── Media Area (adapts per type) ────────────────────────
+            _buildMediaArea(accent),
+
+            // ── Title + Artist ───────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Icon(Icons.admin_panel_settings_rounded,
-                          color: accent, size: 14),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Host Controls',
-                        style: TextStyle(
-                          color: accent.withOpacity(0.85),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    _sanitizeTitle(session.songTitle),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 17,
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      // Previous — seek to 0
-                      _ControlBtn(
-                        icon: Icons.skip_previous_rounded,
-                        accent: accent,
-                        size: 22,
-                        onTap: () {
-                          context.read<PlayerBloc>()
-                              .add(PlayerSeek(Duration.zero));
-                          context.read<TogetherBloc>()
-                              .add(const TogetherPushSeek(0));
-                        },
-                      ),
-                      // Seek back 10s
-                      _ControlBtn(
-                        icon: Icons.replay_10_rounded,
-                        accent: accent,
-                        size: 22,
-                        onTap: () {
-                          final curPos = context.read<PlayerBloc>()
-                              .state.position.inMilliseconds;
-                          final newPos = (curPos - 10000).clamp(0, durMs);
-                          context.read<PlayerBloc>().add(
-                              PlayerSeek(Duration(milliseconds: newPos)));
-                          context.read<TogetherBloc>().add(
-                              TogetherPushSeek(newPos));
-                        },
-                      ),
-                      // Play / Pause (main button)
-                      GestureDetector(
-                        onTap: () {
-                          final playerBloc = context.read<PlayerBloc>();
-                          final ps         = playerBloc.state;
-                          if (ps.currentSong != null) {
-                            if (ps.isPlaying) {
-                              playerBloc.add(PlayerPause());
-                            } else {
-                              playerBloc.add(PlayerResume());
-                            }
-                          }
-                        },
-                        child: Container(
-                          width: 48, height: 48,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                                colors: [accent, accent.withOpacity(0.7)]),
-                            boxShadow: [
-                              BoxShadow(
-                                  color: accent.withOpacity(0.4),
-                                  blurRadius: 14)
-                            ],
-                          ),
-                          child: Icon(
-                            session.isPlaying
-                                ? Icons.pause_rounded
-                                : Icons.play_arrow_rounded,
-                            color: Colors.white,
-                            size: 26,
-                          ),
-                        ),
-                      ),
-                      // Seek forward 10s
-                      _ControlBtn(
-                        icon: Icons.forward_10_rounded,
-                        accent: accent,
-                        size: 22,
-                        onTap: () {
-                          final curPos = context.read<PlayerBloc>()
-                              .state.position.inMilliseconds;
-                          final newPos = (curPos + 10000).clamp(0, durMs);
-                          context.read<PlayerBloc>().add(
-                              PlayerSeek(Duration(milliseconds: newPos)));
-                          context.read<TogetherBloc>().add(
-                              TogetherPushSeek(newPos));
-                        },
-                      ),
-                      // Skip to end / next
-                      _ControlBtn(
-                        icon: Icons.skip_next_rounded,
-                        accent: accent,
-                        size: 22,
-                        onTap: () {
-                          final endPos = durMs > 1000 ? durMs - 1000 : 0;
-                          context.read<PlayerBloc>().add(
-                              PlayerSeek(Duration(milliseconds: endPos)));
-                          context.read<TogetherBloc>().add(
-                              TogetherPushSeek(endPos));
-                        },
-                      ),
-                    ],
+                  const SizedBox(height: 4),
+                  Text(
+                    _sanitizeArtist(session.songArtist),
+                    style: const TextStyle(
+                        color: AppTheme.textSecondary, fontSize: 13),
                   ),
                 ],
               ),
             ),
+
+            const SizedBox(height: 14),
+
+            // ── Progress + status (audio + local video) ─────────────
+            if (!isYt) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: (progress as double).clamp(0.0, 1.0),
+                    backgroundColor: Colors.white.withOpacity(0.08),
+                    valueColor: AlwaysStoppedAnimation<Color>(accent),
+                    minHeight: 4,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(_fmt(posMs),
+                        style: const TextStyle(
+                            fontSize: 11, color: AppTheme.textSecondary)),
+                    Row(children: [
+                      Container(
+                        width: 8, height: 8,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: session.isPlaying
+                              ? const Color(0xFF22C55E)
+                              : Colors.orange,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        session.isPlaying ? 'Playing' : 'Paused',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: session.isPlaying
+                              ? const Color(0xFF22C55E)
+                              : Colors.orange,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ]),
+                    Text(_fmt(durMs),
+                        style: const TextStyle(
+                            fontSize: 11, color: AppTheme.textSecondary)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+            ] else ...[
+              // YouTube: LIVE indicator (YouTube controls are in the video)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                child: Row(children: [
+                  Container(
+                    width: 7, height: 7,
+                    decoration: const BoxDecoration(
+                        shape: BoxShape.circle, color: Color(0xFFFF0000)),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text('LIVE',
+                      style: TextStyle(
+                          color: Color(0xFFFF0000),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1)),
+                  const SizedBox(width: 10),
+                  const Text('YouTube controls inside the video',
+                      style: TextStyle(
+                          color: AppTheme.textSecondary, fontSize: 11)),
+                ]),
+              ),
+              const SizedBox(height: 4),
+            ],
+
+            // ── Host controls (audio + local video only) ────────────
+            if (widget.isOwner && !isYt) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                child: _buildHostControls(accent, durMs),
+              ),
+            ] else ...[
+              const SizedBox(height: 16),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
+
+  // ── Media area builder ─────────────────────────────────────────
+  Widget _buildMediaArea(Color accent) {
+    switch (_mediaType) {
+      case _MediaType.audio:
+        return _buildAudioArtwork(accent);
+      case _MediaType.localVideo:
+        return _buildInlineVideoPlayer(accent);
+      case _MediaType.youtubeVideo:
+        return _buildYouTubeEmbed();
+    }
+  }
+
+  // Audio: gradient strip with animated equalizer bars
+  Widget _buildAudioArtwork(Color accent) {
+    final session = widget.session;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      height: 76,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [accent.withOpacity(0.13), accent.withOpacity(0.04)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accent.withOpacity(0.18), width: 1),
+      ),
+      child: Row(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 12, 0),
+          child: Container(
+            width: 48, height: 48,
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.music_note_rounded, color: accent, size: 22),
+          ),
+        ),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Audio Track',
+                  style: TextStyle(
+                      color: accent.withOpacity(0.65),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1)),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 22,
+                child: Row(
+                  children: List.generate(18, (i) {
+                    final h = session.isPlaying && i < widget.barHeights.length
+                        ? 22.0 * widget.barHeights[i]
+                        : 4.0;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      width: 2.8,
+                      height: h.clamp(3.0, 22.0),
+                      margin: const EdgeInsets.only(right: 1.5),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(2),
+                        color: accent.withOpacity(
+                            session.isPlaying ? 0.85 : 0.25),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+      ]),
+    );
+  }
+
+  // Local MP4: inline synced video frame with buffering overlay + fullscreen
+  Widget _buildInlineVideoPlayer(Color accent) {
+    final ctrl = _vidCtrl;
+    final hasUrl = widget.session.hasStreamUrl;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+      constraints: const BoxConstraints(minHeight: 160, maxHeight: 240),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accent.withOpacity(0.3), width: 1),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Video frame
+            if (_vidReady && ctrl != null)
+              SizedBox.expand(
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  child: SizedBox(
+                    width:  ctrl.value.size.width  > 0 ? ctrl.value.size.width  : 1920,
+                    height: ctrl.value.size.height > 0 ? ctrl.value.size.height : 1080,
+                    child: VideoPlayer(ctrl),
+                  ),
+                ),
+              )
+            else if (!hasUrl)
+              // Uploading
+              Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                CircularProgressIndicator(color: accent, strokeWidth: 2),
+                const SizedBox(height: 10),
+                Text('Video uploading… please wait',
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.6), fontSize: 12)),
+              ])
+            else
+              // Initializing player
+              const Center(
+                child: CircularProgressIndicator(
+                    color: AppTheme.accentViolet),
+              ),
+
+            // Buffering overlay (shown during mid-playback stalls)
+            if (_vidReady && ctrl?.value.isBuffering == true)
+              Container(
+                color: Colors.black54,
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: AppTheme.accentViolet),
+                      SizedBox(height: 10),
+                      Text('Buffering…',
+                          style: TextStyle(
+                              color: Colors.white70, fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Fullscreen button
+            if (_vidReady && ctrl != null)
+              Positioned(
+                right: 8, top: 8,
+                child: GestureDetector(
+                  onTap: () {
+                    final posMs = ctrl.value.position.inMilliseconds;
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => _TogetherLocalVideoPlayer(
+                        streamUrl:    widget.session.streamUrl,
+                        title:        widget.session.songTitle,
+                        artist:       widget.session.songArtist,
+                        initialPosMs: posMs,
+                        isPlaying:    widget.session.isPlaying,
+                      ),
+                    ));
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.55),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(Icons.fullscreen_rounded,
+                        color: Colors.white, size: 20),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // YouTube: inline WebView embed
+  Widget _buildYouTubeEmbed() {
+    final ytId = _youtubeId;
+    if (ytId.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+        height: 120,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(color: Color(0xFFFF0000)),
+        ),
+      );
+    }
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+      height: 210,
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+            color: const Color(0xFFFF0000).withOpacity(0.35), width: 1),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(children: [
+          if (_webCtrl != null)
+            WebViewWidget(controller: _webCtrl!)
+          else
+            const Center(
+              child: CircularProgressIndicator(color: Color(0xFFFF0000)),
+            ),
+          if (_webLoading)
+            Container(
+              color: Colors.black,
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(color: Color(0xFFFF0000)),
+                    SizedBox(height: 12),
+                    Text('Loading YouTube video…',
+                        style: TextStyle(
+                            color: Colors.white54, fontSize: 12)),
+                  ],
+                ),
+              ),
+            ),
+        ]),
+      ),
+    );
+  }
+
+  // Host controls row
+  Widget _buildHostControls(Color accent, int durMs) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: accent.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accent.withOpacity(0.18)),
+      ),
+      child: Column(children: [
+        Row(children: [
+          Icon(Icons.admin_panel_settings_rounded, color: accent, size: 14),
+          const SizedBox(width: 6),
+          Text('Host Controls',
+              style: TextStyle(
+                  color: accent.withOpacity(0.85),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600)),
+        ]),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _ControlBtn(
+              icon: Icons.skip_previous_rounded,
+              accent: accent, size: 22,
+              onTap: () {
+                context.read<PlayerBloc>().add(PlayerSeek(Duration.zero));
+                context.read<TogetherBloc>().add(const TogetherPushSeek(0));
+              },
+            ),
+            _ControlBtn(
+              icon: Icons.replay_10_rounded,
+              accent: accent, size: 22,
+              onTap: () {
+                final cur = context.read<PlayerBloc>().state.position.inMilliseconds;
+                final pos = (cur - 10000).clamp(0, durMs);
+                context.read<PlayerBloc>().add(PlayerSeek(Duration(milliseconds: pos)));
+                context.read<TogetherBloc>().add(TogetherPushSeek(pos));
+              },
+            ),
+            GestureDetector(
+              onTap: () {
+                final pb = context.read<PlayerBloc>();
+                final ps = pb.state;
+                if (ps.currentSong != null) {
+                  if (ps.isPlaying) pb.add(PlayerPause());
+                  else pb.add(PlayerResume());
+                }
+              },
+              child: Container(
+                width: 48, height: 48,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                      colors: [accent, accent.withOpacity(0.7)]),
+                  boxShadow: [BoxShadow(
+                      color: accent.withOpacity(0.4), blurRadius: 14)],
+                ),
+                child: Icon(
+                  widget.session.isPlaying
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                  color: Colors.white, size: 26,
+                ),
+              ),
+            ),
+            _ControlBtn(
+              icon: Icons.forward_10_rounded,
+              accent: accent, size: 22,
+              onTap: () {
+                final cur = context.read<PlayerBloc>().state.position.inMilliseconds;
+                final pos = (cur + 10000).clamp(0, durMs);
+                context.read<PlayerBloc>().add(PlayerSeek(Duration(milliseconds: pos)));
+                context.read<TogetherBloc>().add(TogetherPushSeek(pos));
+              },
+            ),
+            _ControlBtn(
+              icon: Icons.skip_next_rounded,
+              accent: accent, size: 22,
+              onTap: () {
+                final pos = durMs > 1000 ? durMs - 1000 : 0;
+                context.read<PlayerBloc>().add(PlayerSeek(Duration(milliseconds: pos)));
+                context.read<TogetherBloc>().add(TogetherPushSeek(pos));
+              },
+            ),
+          ],
+        ),
+      ]),
+    );
+  }
+}
+
+// Helper: sanitize artist strings — filters Android MediaStore "<unknown>" sentinel
+String _sanitizeArtist(String raw) {
+  final t = raw.trim();
+  if (t.isEmpty) return 'Unknown Artist';
+  if (t == '<unknown>') return 'Unknown Artist';
+  if (t.startsWith('<') && t.endsWith('>') && t.length < 40) return 'Unknown Artist';
+  return t;
 }
 
 // Helper: strip Firebase Storage URLs / file paths from song title display
 String _sanitizeTitle(String raw) {
   if (raw.isEmpty) return 'Unknown Song';
-
-  // Firebase Storage download token — base64url with no spaces, very long
-  // e.g. "WaKHhMug5gpuLs4G1ejr+h..." → garbage, show Unknown Song
   final tokenRe = RegExp(r'^[A-Za-z0-9+/=_\-]{30,}$');
   if (tokenRe.hasMatch(raw.trim())) return 'Unknown Song';
-
-  // Looks like a Firebase Storage / HTTP URL → extract readable filename
   if (raw.startsWith('http') || raw.startsWith('https')) {
     try {
       final uri   = Uri.parse(raw);
-      // Try "alt=media&token=..." style URLs — get path segment
       final parts = uri.path.replaceAll('%2F', '/').split('/');
-      final filename = parts.lastWhere(
+      final fn    = parts.lastWhere(
         (p) => p.isNotEmpty && !p.startsWith('v0') && !p.startsWith('b'),
         orElse: () => '',
       ).split('?').first;
-      final decoded = Uri.decodeComponent(filename);
-      final dot = decoded.lastIndexOf('.');
-      final name = dot > 0 ? decoded.substring(0, dot) : decoded;
+      final decoded = Uri.decodeComponent(fn);
+      final dot     = decoded.lastIndexOf('.');
+      final name    = dot > 0 ? decoded.substring(0, dot) : decoded;
       if (name.isNotEmpty && name.length < 200) return name;
     } catch (_) {}
     return 'Unknown Song';
   }
-
-  // Local file path
   if (raw.startsWith('/') || raw.contains('://')) {
     final parts = raw.split('/');
-    final filename = parts.last.split('?').first;
-    final dot = filename.lastIndexOf('.');
-    final name = dot > 0 ? filename.substring(0, dot) : filename;
+    final fn    = parts.last.split('?').first;
+    final dot   = fn.lastIndexOf('.');
+    final name  = dot > 0 ? fn.substring(0, dot) : fn;
     return name.isEmpty ? 'Unknown Song' : name;
   }
-
-  // Suspiciously long with no spaces → garbage token
   if (raw.length > 80 && !raw.contains(' ')) return 'Unknown Song';
-
   return raw;
 }
 
@@ -2618,14 +3118,11 @@ class _LeaveButton extends StatelessWidget {
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16)),
         ),
-        icon: Icon(
-          isOwner ? Icons.close_rounded : Icons.exit_to_app_rounded,
-          size: 20,
-        ),
+        icon: Icon(isOwner ? Icons.close_rounded : Icons.exit_to_app_rounded,
+            size: 20),
         label: Text(
           isOwner ? 'End Session' : 'Leave Session',
-          style: const TextStyle(
-              fontWeight: FontWeight.w700, fontSize: 15),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
         ),
       ),
     );
@@ -2636,8 +3133,7 @@ class _LeaveButton extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppTheme.bgCard,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           isOwner ? 'End Session?' : 'Leave Session?',
           style: const TextStyle(
@@ -2675,188 +3171,109 @@ class _LeaveButton extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  YOUTUBE IN TOGETHER CARD
+//  _YoutubeSearchCard  (search-only — playback is in unified player)
 // ══════════════════════════════════════════════════════════════
 
-class _YoutubeInTogetherCard extends StatelessWidget {
+class _YoutubeSearchCard extends StatelessWidget {
   final Color accent;
   final bool isOwner;
 
-  const _YoutubeInTogetherCard({required this.accent, required this.isOwner});
+  const _YoutubeSearchCard({required this.accent, required this.isOwner});
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<TogetherBloc, TogetherState>(
-      buildWhen: (p, c) =>
-          p.ytLoading  != c.ytLoading  ||
-          p.ytResults  != c.ytResults  ||
-          p.session?.songId != c.session?.songId ||
-          p.session?.songTitle != c.session?.songTitle,
+      buildWhen: (p, c) => p.ytLoading != c.ytLoading,
       builder: (context, state) {
-        // Detect if a YouTube track is currently playing in session
-        final session      = state.session;
-        final isYtPlaying  = session != null &&
-            session.streamUrl.isNotEmpty &&
-            session.streamUrl.startsWith('http') &&
-            !session.songData.startsWith('/'); // local files start with /
-
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: AppTheme.bgCard,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: isYtPlaying
-                  ? const Color(0xFFFF0000).withOpacity(0.5)
-                  : const Color(0xFFFF0000).withOpacity(0.25),
-              width: isYtPlaying ? 1.5 : 1,
-            ),
+                color: const Color(0xFFFF0000).withOpacity(0.25), width: 1),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Header row ──
-              Row(
+          child: Row(children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF0000).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: state.ytLoading
+                  ? const Padding(
+                      padding: EdgeInsets.all(11),
+                      child: CircularProgressIndicator(
+                          color: Color(0xFFFF0000), strokeWidth: 2))
+                  : const Icon(Icons.smart_display_rounded,
+                      color: Color(0xFFFF0000), size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 44, height: 44,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF0000).withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: state.ytLoading
-                        ? const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: CircularProgressIndicator(
-                                color: Color(0xFFFF0000), strokeWidth: 2),
-                          )
-                        : const Icon(Icons.smart_display_rounded,
-                            color: Color(0xFFFF0000), size: 24),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'YouTube Music',
-                          style: TextStyle(
-                            color: AppTheme.textPrimary,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
-                        ),
-                        Text(
-                          state.ytLoading
-                              ? 'Loading stream...'
-                              : isOwner
-                                  ? 'Search & play for everyone'
-                                  : 'Search & share in chat',
-                          style: const TextStyle(
-                              color: AppTheme.textSecondary,
-                              fontSize: 11,
-                              height: 1.4),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: state.ytLoading
-                        ? null
-                        : () {
-                            showModalBottomSheet(
-                              context: context,
-                              backgroundColor: Colors.transparent,
-                              isScrollControlled: true,
-                              builder: (_) => BlocProvider.value(
-                                value: context.read<TogetherBloc>(),
-                                child: YoutubeSearchSheet(isOwner: isOwner),
-                              ),
-                            );
-                          },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 9),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        gradient: LinearGradient(colors: [
-                          const Color(0xFFFF0000).withOpacity(
-                              state.ytLoading ? 0.4 : 1.0),
-                          const Color(0xFFFF0000).withOpacity(
-                              state.ytLoading ? 0.3 : 0.7),
-                        ]),
-                      ),
-                      child: const Text(
-                        'Search',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700),
-                      ),
-                    ),
+                  const Text('YouTube',
+                      style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13)),
+                  Text(
+                    state.ytLoading
+                        ? 'Loading stream…'
+                        : isOwner
+                            ? 'Search & play for everyone'
+                            : 'Search & share in chat',
+                    style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 11,
+                        height: 1.4),
                   ),
                 ],
               ),
-
-              // ── Now Playing strip (YouTube track active) ──
-              if (isYtPlaying) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF0000).withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.music_note_rounded,
-                          color: Color(0xFFFF0000), size: 14),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          session!.songTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppTheme.textPrimary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
+            ),
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: state.ytLoading
+                  ? null
+                  : () {
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        isScrollControlled: true,
+                        builder: (_) => BlocProvider.value(
+                          value: context.read<TogetherBloc>(),
+                          child: YoutubeSearchSheet(isOwner: isOwner),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        width: 6, height: 6,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Color(0xFFFF0000),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Text(
-                        'LIVE',
-                        style: TextStyle(
-                          color: Color(0xFFFF0000),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ],
-                  ),
+                      );
+                    },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 9),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  gradient: LinearGradient(colors: [
+                    const Color(0xFFFF0000)
+                        .withOpacity(state.ytLoading ? 0.4 : 1.0),
+                    const Color(0xFFFF0000)
+                        .withOpacity(state.ytLoading ? 0.3 : 0.7),
+                  ]),
                 ),
-              ],
-            ],
-          ),
+                child: const Text('Search',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ]),
         );
       },
     );
   }
 }
 
-// ── Video Call stub (Agora removed to reduce APK size) ───────────────────────
+
 class _VideoCallComingSoon extends StatelessWidget {
   const _VideoCallComingSoon();
 
@@ -2944,6 +3361,256 @@ class _TogetherBackground extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  _TogetherLocalVideoPlayer                                           ║
+// ║  Full-screen video player opened via the fullscreen button above.    ║
+// ║  Accepts initialPosMs so it starts at the same position as inline.  ║
+// ╚══════════════════════════════════════════════════════════════════════╝
+class _TogetherLocalVideoPlayer extends StatefulWidget {
+  final String streamUrl;
+  final String title;
+  final String artist;
+  final int    initialPosMs;
+  final bool   isPlaying;
+
+  const _TogetherLocalVideoPlayer({
+    required this.streamUrl,
+    required this.title,
+    required this.artist,
+    this.initialPosMs = 0,
+    this.isPlaying    = true,
+  });
+
+  @override
+  State<_TogetherLocalVideoPlayer> createState() =>
+      _TogetherLocalVideoPlayerState();
+}
+
+class _TogetherLocalVideoPlayerState
+    extends State<_TogetherLocalVideoPlayer> {
+  late VideoPlayerController _ctrl;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+      DeviceOrientation.portraitUp,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    _initPlayer();
+  }
+
+  Future<void> _initPlayer() async {
+    // BUG-VID-AUDIOFOCUS FIX: mixWithOthers=true so the fullscreen
+    // VideoPlayerController doesn't steal audio focus from just_audio.
+    _ctrl = VideoPlayerController.networkUrl(
+      Uri.parse(widget.streamUrl),
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    await _ctrl.initialize();
+    _ctrl.addListener(() { if (mounted) setState(() {}); });
+    // Seek to the position passed from the inline player
+    if (widget.initialPosMs > 0) {
+      await _ctrl.seekTo(Duration(milliseconds: widget.initialPosMs));
+    }
+    setState(() => _ready = true);
+    if (widget.isPlaying) _ctrl.play();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
+  String _fmt(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '${d.inHours > 0 ? "${d.inHours}:" : ""}$m:$s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Column(
+        children: [
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded,
+                        color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(widget.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600)),
+                        Text(widget.artist,
+                            style: const TextStyle(
+                                color: Colors.white54, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // BUG-VID-PORTRAIT FIX: same FittedBox fix as inline player
+          // so portrait videos fill the full-screen view correctly.
+          // BUG-VID-BUFF-FS FIX: added Stack + buffering overlay here
+          // (fullscreen player had no buffering indicator after init).
+          Expanded(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (_ready)
+                  SizedBox.expand(
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      child: SizedBox(
+                        width: _ctrl.value.size.width  > 0
+                            ? _ctrl.value.size.width   : 1920,
+                        height: _ctrl.value.size.height > 0
+                            ? _ctrl.value.size.height  : 1080,
+                        child: VideoPlayer(_ctrl),
+                      ),
+                    ),
+                  )
+                else
+                  const Center(
+                    child: CircularProgressIndicator(
+                        color: AppTheme.accentViolet)),
+                // Buffering overlay (shown mid-playback when network stalls)
+                if (_ready && _ctrl.value.isBuffering)
+                  const Center(
+                    child: CircularProgressIndicator(
+                        color: AppTheme.accentViolet)),
+              ],
+            ),
+          ),
+          if (_ready)
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Column(
+                  children: [
+                    ValueListenableBuilder<VideoPlayerValue>(
+                      valueListenable: _ctrl,
+                      builder: (_, v, __) {
+                        final pos  = v.position;
+                        final tot  = v.duration;
+                        final prog = tot.inMilliseconds == 0
+                            ? 0.0
+                            : pos.inMilliseconds / tot.inMilliseconds;
+                        return Column(
+                          children: [
+                            SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 6),
+                                trackHeight: 3,
+                                activeTrackColor: AppTheme.accentViolet,
+                                inactiveTrackColor:
+                                    Colors.white.withOpacity(0.3),
+                                thumbColor: AppTheme.accentViolet,
+                                overlayShape: SliderComponentShape.noOverlay,
+                              ),
+                              child: Slider(
+                                value: prog.clamp(0.0, 1.0),
+                                onChanged: (vv) => _ctrl.seekTo(Duration(
+                                    milliseconds:
+                                        (vv * tot.inMilliseconds).round())),
+                              ),
+                            ),
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(_fmt(pos),
+                                    style: const TextStyle(
+                                        color: Colors.white54, fontSize: 11)),
+                                Text(_fmt(tot),
+                                    style: const TextStyle(
+                                        color: Colors.white54, fontSize: 11)),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.replay_10_rounded,
+                              color: Colors.white, size: 36),
+                          onPressed: () async {
+                            final pos = _ctrl.value.position;
+                            await _ctrl.seekTo(
+                                pos - const Duration(seconds: 10));
+                          },
+                        ),
+                        const SizedBox(width: 16),
+                        GestureDetector(
+                          onTap: () => _ctrl.value.isPlaying
+                              ? _ctrl.pause()
+                              : _ctrl.play(),
+                          child: Container(
+                            width: 56,
+                            height: 56,
+                            decoration: const BoxDecoration(
+                                color: AppTheme.accentViolet,
+                                shape: BoxShape.circle),
+                            child: Icon(
+                              _ctrl.value.isPlaying
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        IconButton(
+                          icon: const Icon(Icons.forward_10_rounded,
+                              color: Colors.white, size: 36),
+                          onPressed: () async {
+                            final pos = _ctrl.value.position;
+                            await _ctrl.seekTo(
+                                pos + const Duration(seconds: 10));
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

@@ -55,7 +55,15 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
         return SlideTransition(
           position: _slideAnim,
           child: GestureDetector(
-            onTap: () => context.push(AppRouter.nowPlaying),
+            // BUG-MINIVID FIX: was always pushing nowPlaying (vinyl disc UI).
+            // If the current song is a video, open VideoPlayerScreen instead.
+            onTap: () {
+              if (song.isVideo) {
+                context.push(AppRouter.videoPlayer, extra: song);
+              } else {
+                context.push(AppRouter.nowPlaying);
+              }
+            },
             child: AnimatedBuilder(
               animation: _glowAnim,
               builder: (_, child) => Container(

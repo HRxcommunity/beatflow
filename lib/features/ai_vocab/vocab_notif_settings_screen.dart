@@ -1,9 +1,11 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  Vocab Notification Settings Screen                          ║
-// ║  Schedule time, days, word count — sab kuch yahan           ║
+// ║  BUG-VN03 FIX: interval display + window warning            ║
+// ║  BUG-VN04 FIX: permission denied → open system settings     ║
 // ╚══════════════════════════════════════════════════════════════╝
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/app_theme.dart';
 import 'vocab_notif_service.dart';
 
@@ -16,17 +18,19 @@ class VocabNotifSettingsScreen extends StatefulWidget {
 }
 
 class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
-  final _svc       = VocabNotifService.instance;
+  final _svc        = VocabNotifService.instance;
   final _apiKeyCtrl = TextEditingController();
 
-  bool _generating  = false;
-  bool _scheduling  = false;
-  bool _showApiKey  = false;
-  int  _pendingCnt  = 0;
+  bool _loading       = false;
+  bool _scheduling    = false;
+  bool _showApiKey    = false;
+  int  _pendingCnt    = 0;
   String? _statusMsg;
   bool _statusIsError = false;
+  bool _notifEnabled  = true; // system-level permission
+  final _customWordCtrl = TextEditingController();
 
-  static const _dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  static const _dayLabels  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   static const _wordCounts = [10, 20, 30, 40];
 
   @override
@@ -34,17 +38,24 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
     super.initState();
     _apiKeyCtrl.text = _svc.settings.groqApiKey;
     _refreshPendingCount();
+    _checkSystemPermission();
   }
 
   @override
   void dispose() {
     _apiKeyCtrl.dispose();
+    _customWordCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _refreshPendingCount() async {
     final cnt = await _svc.getPendingCount();
     if (mounted) setState(() => _pendingCnt = cnt);
+  }
+
+  Future<void> _checkSystemPermission() async {
+    final enabled = await _svc.areNotificationsEnabled();
+    if (mounted) setState(() => _notifEnabled = enabled);
   }
 
   void _showStatus(String msg, {bool error = false}) {
@@ -54,29 +65,45 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
     });
   }
 
+  // ── Open system notification settings ────────────────────────────────────
+  void _openSystemNotifSettings() {
+    // Open BeatFlow's notification settings page in system settings
+    const channel = MethodChannel('beatflow/settings');
+    channel.invokeMethod('openNotificationSettings').catchError((_) {
+      // Fallback: show instruction
+      _showStatus(
+        'System Settings > Apps > BeatFlow > Notifications → Enable karo',
+        error: false,
+      );
+    });
+  }
+
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   Future<void> _onToggleEnabled(bool val) async {
     if (val && _svc.wordBankSize == 0) {
-      _showStatus('Pehle word bank generate karo ⬇️', error: true);
-      return;
-    }
-
-    if (val) {
-      // Request notification + exact-alarm permissions BEFORE scheduling —
-      // without this, scheduleNext() "succeeds" but Android silently drops
-      // every notification because permission was never actually granted.
-      final granted = await _svc.requestPermissions();
-      if (!granted) {
-        _showStatus(
-          'Notification permission nahi mila. Settings se allow karo.',
-          error: true,
-        );
-        setState(() {}); // switch snaps back off — settings.enabled still false
+      final key = _apiKeyCtrl.text.trim().isNotEmpty
+          ? _apiKeyCtrl.text.trim()
+          : _svc.settings.groqApiKey.trim();
+      if (key.isEmpty) {
+        _showStatus('Pehle Groq API key daalo, phir enable karo ⬆️', error: true);
         return;
       }
+      _svc.settings.groqApiKey = key;
+      await _svc.saveSettings();
+      setState(() {
+        _loading   = true;
+        _statusMsg = null;
+      });
+      _showStatus('Word bank generate ho raha hai... ⏳');
+      final err = await _svc.generateWordBank(count: 60);
+      setState(() => _loading = false);
+      if (err != null) {
+        _showStatus(err, error: true);
+        return;
+      }
+      _showStatus('${_svc.wordBankSize} words generate ho gaye! 📚');
     }
-
     _svc.settings.enabled = val;
     await _svc.saveSettings();
     if (!val) {
@@ -84,15 +111,9 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
       _showStatus('Notifications band kar diye ✅');
     } else {
       final n = await _svc.scheduleNext(daysAhead: 7);
-      if (n == 0) {
-        _showStatus(
-          'Koi notification schedule nahi hua.\n'
-          'Time range check karo ya koi active day select karo.',
-          error: true,
-        );
-      } else {
-        _showStatus('$n notifications schedule ho gaye 🎉');
-      }
+      final nextLabel = _svc.getNextNotificationLabel();
+      final nextLine  = nextLabel.isNotEmpty ? '\n⏰ $nextLabel pehli notification aayegi' : '';
+      _showStatus('$n notifications schedule ho gaye!$nextLine');
     }
     _refreshPendingCount();
     setState(() {});
@@ -138,7 +159,6 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
   }
 
   Future<void> _onGenerateWordBank() async {
-    // Save API key first
     _svc.settings.groqApiKey = _apiKeyCtrl.text.trim();
     await _svc.saveSettings();
 
@@ -148,13 +168,13 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
     }
 
     setState(() {
-      _generating = true;
-      _statusMsg  = null;
+      _loading   = true;
+      _statusMsg = null;
     });
 
     final err = await _svc.generateWordBank(count: 60);
 
-    setState(() => _generating = false);
+    setState(() => _loading = false);
 
     if (err != null) {
       _showStatus(err, error: true);
@@ -164,9 +184,30 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
   }
 
   Future<void> _onSchedule() async {
+    // BUG-V5 FIX: Auto-generate word bank if empty — user nahi karna chahta manually
     if (_svc.wordBankSize == 0) {
-      _showStatus('Pehle word bank generate karo ⬆️', error: true);
-      return;
+      if (_svc.settings.groqApiKey.isEmpty) {
+        _showStatus(
+          'Ek baar Groq API key daalo (free hai: console.groq.com) — '
+          'phir Schedule press karo, baaki sab automatic hoga! 🔑',
+          error: true,
+        );
+        return;
+      }
+
+      setState(() {
+        _scheduling = true;
+        _statusMsg  = null;
+      });
+      _showStatus('📚 Words generate ho rahe hain... ek minute');
+
+      final genErr = await _svc.generateWordBank(count: 60);
+      if (genErr != null) {
+        setState(() => _scheduling = false);
+        _showStatus('Word generation fail hua: $genErr', error: true);
+        return;
+      }
+      setState(() {}); // update word count display
     }
 
     setState(() {
@@ -174,14 +215,14 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
       _statusMsg  = null;
     });
 
-    // Request permissions first
     final granted = await _svc.requestPermissions();
     if (!granted) {
       setState(() => _scheduling = false);
       _showStatus(
-        'Notification permission nahi mila. Settings se allow karo.',
+        'Notification permission nahi mila.\nSystem Settings se enable karo.',
         error: true,
       );
+      await _checkSystemPermission();
       return;
     }
 
@@ -190,6 +231,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
 
     final n = await _svc.scheduleNext(daysAhead: 7);
     await _refreshPendingCount();
+    await _checkSystemPermission();
 
     setState(() => _scheduling = false);
 
@@ -200,7 +242,12 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
         error: true,
       );
     } else {
-      _showStatus('$n notifications schedule ho gaye agle 7 dino ke liye 🎉');
+      // BUG-V5 FIX: Show exactly WHEN the next notification will fire
+      final nextLabel = _svc.getNextNotificationLabel();
+      final nextLine  = nextLabel.isNotEmpty
+          ? '\n⏰ Pehli notification: $nextLabel aayegi!'
+          : '';
+      _showStatus('✅ $n notifications schedule ho gaye!$nextLine');
     }
   }
 
@@ -225,6 +272,11 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // BUG-VN04 FIX: Show system permission warning banner
+          if (!_notifEnabled) ...[
+            _buildPermissionWarningBanner(accent),
+            const SizedBox(height: 12),
+          ],
           _buildStatusBanner(accent),
           const SizedBox(height: 12),
           _buildEnableCard(accent),
@@ -293,10 +345,75 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
     );
   }
 
+  // ── BUG-VN04 FIX: System permission warning ───────────────────────────────
+
+  Widget _buildPermissionWarningBanner(Color accent) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.orange.withOpacity(0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.notification_important_rounded,
+              color: Colors.orange, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  '🔕 System Notifications OFF',
+                  style: TextStyle(
+                    fontFamily : 'Poppins',
+                    fontSize   : 13,
+                    fontWeight : FontWeight.w700,
+                    color      : Colors.orange,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'BeatFlow notifications system settings mein band hain',
+                  style: TextStyle(
+                    fontFamily : 'Poppins',
+                    fontSize   : 11,
+                    color      : Colors.orange,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: _openSystemNotifSettings,
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.orange.withOpacity(0.2),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text(
+              'Fix karo',
+              style: TextStyle(
+                fontFamily : 'Poppins',
+                fontSize   : 12,
+                fontWeight : FontWeight.w700,
+                color      : Colors.orange,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Status Banner ─────────────────────────────────────────────────────────
 
   Widget _buildStatusBanner(Color accent) {
-    final enabled = _svc.settings.enabled;
+    final enabled   = _svc.settings.enabled;
+    final nextLabel = enabled ? _svc.getNextNotificationLabel() : '';
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -339,16 +456,35 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                     color      : enabled ? accent : AppTheme.textSecondary,
                   ),
                 ),
-                Text(
-                  enabled
-                      ? '$_pendingCnt notifications scheduled hain'
-                      : 'Enable karo niche se',
-                  style: const TextStyle(
-                    fontFamily : 'Poppins',
-                    fontSize   : 12,
-                    color      : AppTheme.textSecondary,
+                // BUG-V5 FIX: Show next notification time so user knows when to expect it
+                if (enabled && nextLabel.isNotEmpty)
+                  Text(
+                    '⏰ $nextLabel pehli notification',
+                    style: TextStyle(
+                      fontFamily : 'Poppins',
+                      fontSize   : 12,
+                      fontWeight : FontWeight.w600,
+                      color      : accent.withOpacity(0.9),
+                    ),
+                  )
+                else if (enabled)
+                  Text(
+                    '$_pendingCnt notifications scheduled hain',
+                    style: const TextStyle(
+                      fontFamily : 'Poppins',
+                      fontSize   : 12,
+                      color      : AppTheme.textSecondary,
+                    ),
+                  )
+                else
+                  const Text(
+                    'Neeche "Schedule Karo" dabao',
+                    style: TextStyle(
+                      fontFamily : 'Poppins',
+                      fontSize   : 12,
+                      color      : AppTheme.textSecondary,
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -455,43 +591,101 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
     );
   }
 
+  // BUG-VN03 FIX: Show correct interval + warning when window too small
   Widget _buildIntervalPreview(Color accent) {
     final startMin = _svc.settings.startHour   * 60 + _svc.settings.startMinute;
     final endMin   = _svc.settings.endHour     * 60 + _svc.settings.endMinute;
     final window   = endMin - startMin;
     final count    = _svc.settings.dailyCount;
 
-    if (window <= 0 || count <= 0) {
-      return const Text(
-        '⚠️ Invalid time range',
-        style: TextStyle(
-          fontFamily : 'Poppins', fontSize: 11,
-          color      : Colors.redAccent,
+    if (window <= 0) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color        : Colors.red.withOpacity(0.08),
+          borderRadius : BorderRadius.circular(8),
+        ),
+        child: const Text(
+          '⚠️ End time, Start time se pehle hai!',
+          style: TextStyle(
+            fontFamily : 'Poppins', fontSize: 11,
+            color      : Colors.redAccent,
+          ),
         ),
       );
     }
 
-    final intervalMins = (window / count).round();
-    final hours        = intervalMins ~/ 60;
-    final mins         = intervalMins  % 60;
-    final intervalStr  = hours > 0
-        ? '${hours}h ${mins}min'
-        : '${mins}min';
+    if (count <= 0) {
+      return const SizedBox.shrink();
+    }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color        : accent.withOpacity(0.08),
-        borderRadius : BorderRadius.circular(8),
-      ),
-      child: Text(
-        '⏱ Har $intervalStr mein ek word notification aayega',
-        style: TextStyle(
-          fontFamily : 'Poppins',
-          fontSize   : 11,
-          color      : accent.withOpacity(0.9),
+    // BUG-VN03 FIX: effectiveCount is capped to window minutes
+    final effectiveCount = count > window ? window : count;
+    final intervalMins   = window / effectiveCount; // may be < 1
+    final tooTight       = count > window; // user asked for more than window allows
+
+    String intervalStr;
+    if (intervalMins < 1) {
+      final secs = (intervalMins * 60).round();
+      intervalStr = '${secs}sec';
+    } else {
+      final mins  = intervalMins.round();
+      final hours = mins ~/ 60;
+      final rem   = mins  % 60;
+      intervalStr = hours > 0 ? '${hours}h ${rem}min' : '${rem}min';
+    }
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color        : accent.withOpacity(0.08),
+            borderRadius : BorderRadius.circular(8),
+          ),
+          child: Text(
+            '⏱ Har $intervalStr mein ek word notification aayega'
+            '${tooTight ? " (${effectiveCount}/${count} words)" : ""}',
+            style: TextStyle(
+              fontFamily : 'Poppins',
+              fontSize   : 11,
+              color      : accent.withOpacity(0.9),
+            ),
+          ),
         ),
-      ),
+        // Show warning if count > window
+        if (tooTight) ...[
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color        : Colors.orange.withOpacity(0.08),
+              borderRadius : BorderRadius.circular(8),
+              border       : Border.all(color: Colors.orange.withOpacity(0.25)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded,
+                    color: Colors.orange, size: 13),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '$count words ke liye ${count} min window chahiye.\n'
+                    'Abhi sirf $effectiveCount words schedule honge.\n'
+                    'Window badhao ya words kam karo.',
+                    style: const TextStyle(
+                      fontFamily : 'Poppins',
+                      fontSize   : 10,
+                      color      : Colors.orange,
+                      height     : 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -563,6 +757,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
   // ── Word Count Card ───────────────────────────────────────────────────────
 
   Widget _buildWordCountCard(Color accent) {
+    final isCustom = !_wordCounts.contains(_svc.settings.dailyCount);
     return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -579,7 +774,10 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
               return Expanded(
                 child: GestureDetector(
                   onTap: () async {
-                    setState(() => _svc.settings.dailyCount = cnt);
+                    setState(() {
+                      _svc.settings.dailyCount = cnt;
+                      _customWordCtrl.clear();
+                    });
                     await _svc.saveSettings();
                   },
                   child: AnimatedContainer(
@@ -625,6 +823,90 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
               );
             }).toList(),
           ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller   : _customWordCtrl,
+                  keyboardType : TextInputType.number,
+                  style: const TextStyle(
+                    fontFamily : 'Poppins',
+                    fontSize   : 14,
+                    color      : AppTheme.textPrimary,
+                  ),
+                  decoration: InputDecoration(
+                    hintText : isCustom
+                        ? '${_svc.settings.dailyCount} (custom)'
+                        : 'Ya apna number likho...',
+                    hintStyle: const TextStyle(
+                      fontFamily : 'Poppins',
+                      fontSize   : 12,
+                      color      : AppTheme.textSecondary,
+                    ),
+                    filled        : true,
+                    fillColor     : Colors.white.withOpacity(0.05),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    border        : OutlineInputBorder(
+                      borderRadius : BorderRadius.circular(12),
+                      borderSide   : const BorderSide(color: Colors.white12),
+                    ),
+                    enabledBorder : OutlineInputBorder(
+                      borderRadius : BorderRadius.circular(12),
+                      borderSide   : const BorderSide(color: Colors.white12),
+                    ),
+                    focusedBorder : OutlineInputBorder(
+                      borderRadius : BorderRadius.circular(12),
+                      borderSide   : BorderSide(color: accent.withOpacity(0.5)),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () async {
+                  final val = int.tryParse(_customWordCtrl.text.trim());
+                  if (val == null || val < 1 || val > 200) {
+                    _showStatus('1 se 200 ke beech number daalo', error: true);
+                    return;
+                  }
+                  setState(() => _svc.settings.dailyCount = val);
+                  await _svc.saveSettings();
+                  _showStatus('$val words/day set ho gaya ✅');
+                  FocusScope.of(context).unfocus();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 18, vertical: 12),
+                  decoration: BoxDecoration(
+                    color        : accent,
+                    borderRadius : BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Set',
+                    style: TextStyle(
+                      fontFamily : 'Poppins',
+                      fontSize   : 14,
+                      fontWeight : FontWeight.w700,
+                      color      : Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (isCustom) ...[
+            const SizedBox(height: 6),
+            Text(
+              '✏️ Custom: ${_svc.settings.dailyCount} words/day',
+              style: TextStyle(
+                fontFamily : 'Poppins',
+                fontSize   : 11,
+                color      : accent.withOpacity(0.8),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -768,34 +1050,28 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
 
   Widget _buildActionButtons(Color accent) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Generate
-        _ActionButton(
-          icon    : Icons.auto_awesome_rounded,
-          label   : 'Word Bank Generate Karo (AI)',
-          subLabel: '60 SSC CGL words Groq se generate karo',
-          accent  : accent,
-          loading : _generating,
-          onTap   : _generating ? null : _onGenerateWordBank,
-        ),
-        const SizedBox(height: 10),
-        // Schedule
+        // BUG-V5 FIX: Schedule is now the PRIMARY button (top, full gradient)
+        // Word bank auto-generates inside _onSchedule if empty
         _ActionButton(
           icon    : Icons.schedule_rounded,
-          label   : 'Notifications Schedule Karo',
-          subLabel: 'Agle 7 dino ke liye set karo',
+          label   : 'Schedule Karo ✅',
+          subLabel: _svc.wordBankSize == 0
+              ? 'Words automatically generate + schedule honge'
+              : 'Agle 7 dino ke liye set karo (${_svc.wordBankSize} words ready)',
           accent  : accent,
           loading : _scheduling,
           onTap   : _scheduling ? null : _onSchedule,
-          secondary: true,
         ),
         const SizedBox(height: 10),
-        // Test
+
+        // Test notification — immediate check
         OutlinedButton.icon(
           onPressed: _onTestNotification,
           icon : const Icon(Icons.notification_important_rounded, size: 16),
           label: const Text(
-            'Test Notification Bhejo',
+            'Abhi Test Notification Bhejo',
             style: TextStyle(fontFamily: 'Poppins', fontSize: 13),
           ),
           style: OutlinedButton.styleFrom(
@@ -807,6 +1083,18 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                 borderRadius: BorderRadius.circular(14)),
             minimumSize     : const Size(double.infinity, 48),
           ),
+        ),
+        const SizedBox(height: 10),
+
+        // Generate Word Bank — secondary (for manual refresh/add more words)
+        _ActionButton(
+          icon    : Icons.auto_awesome_rounded,
+          label   : 'Aur Words Add Karo (AI)',
+          subLabel: '60 aur SSC CGL words generate karo',
+          accent  : accent,
+          loading : _loading,
+          onTap   : _loading ? null : _onGenerateWordBank,
+          secondary: true,
         ),
       ],
     );
