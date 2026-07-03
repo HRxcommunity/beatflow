@@ -16,6 +16,7 @@ import '../../features/ai_vocab/vocab_notif_settings_screen.dart';
 import '../../features/browser/hrx_browse_screen.dart';
 import '../../features/youtube/youtube_video_screen.dart';
 import '../../features/study_ai/study_ai_screen.dart';
+import '../../features/social/presentation/social_screen.dart';
 
 import '../../domain/entities/song_entity.dart';
 
@@ -36,6 +37,7 @@ class AppRouter {
   static const studyAi    = '/study-ai';
   static const browser    = '/browser';
   static const youtubeVideo = '/youtube-video';
+  static const social       = '/social';
 
   static final router = GoRouter(
     initialLocation: splash,
@@ -121,6 +123,10 @@ class AppRouter {
       GoRoute(
         path: studyAi,
         builder: (context, state) => const StudyAiScreen(),
+      ),
+      GoRoute(
+        path: social,
+        builder: (context, state) => const SocialScreen(),
       ),
       GoRoute(
         path: browser,

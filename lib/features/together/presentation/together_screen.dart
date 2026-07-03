@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../bloc/together_bloc.dart';
 import '../bloc/game_bloc.dart';
 import '../domain/entities/session_entity.dart';
@@ -17,6 +19,8 @@ import 'games/games_panel.dart';
 import '../../youtube/youtube_search_sheet.dart';
 import 'package:video_player/video_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TogetherScreen extends StatefulWidget {
   const TogetherScreen({super.key});
@@ -763,7 +767,7 @@ class _HowItWorksCard extends StatelessWidget {
 //  CREATE SESSION SHEET
 // ═══════════════════════════════════════════════════════════════
 
-class _CreateSessionSheet extends StatelessWidget {
+class _CreateSessionSheet extends StatefulWidget {
   final PlayerBloc playerBloc;
   final Color accent;
 
@@ -771,9 +775,17 @@ class _CreateSessionSheet extends StatelessWidget {
       {required this.playerBloc, required this.accent});
 
   @override
+  State<_CreateSessionSheet> createState() => _CreateSessionSheetState();
+}
+
+class _CreateSessionSheetState extends State<_CreateSessionSheet> {
+  bool _isPublic = false;
+
+  @override
   Widget build(BuildContext context) {
-    final playerState = playerBloc.state;
-    final song = playerState.currentSong!;
+    final playerState = widget.playerBloc.state;
+    final song   = playerState.currentSong!;
+    final accent = widget.accent;
 
     return Container(
       margin: const EdgeInsets.all(12),
@@ -787,10 +799,10 @@ class _CreateSessionSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Drag handle ───────────────────────────────────────
           Center(
             child: Container(
-              width: 36,
-              height: 4,
+              width: 36, height: 4,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(2),
@@ -801,40 +813,32 @@ class _CreateSessionSheet extends StatelessWidget {
           Text(
             'Create Listening Session',
             style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
-              shadows: [
-                Shadow(color: accent.withOpacity(0.4), blurRadius: 12)
-              ],
+              fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary,
+              shadows: [Shadow(color: accent.withOpacity(0.4), blurRadius: 12)],
             ),
           ),
           const SizedBox(height: 6),
           const Text(
             'Share the code with friends to listen together.',
-            style: TextStyle(
-                color: AppTheme.textSecondary, fontSize: 13, height: 1.4),
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 20),
+
+          // ── Current song ──────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.05),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                  color: Colors.white.withOpacity(0.06), width: 1),
+              border: Border.all(color: Colors.white.withOpacity(0.06), width: 1),
             ),
             child: Row(
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 44, height: 44,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-                    gradient: LinearGradient(colors: [
-                      accent.withOpacity(0.3),
-                      AppTheme.bgSurface,
-                    ]),
+                    gradient: LinearGradient(colors: [accent.withOpacity(0.3), AppTheme.bgSurface]),
                   ),
                   child: Icon(Icons.music_note_rounded, color: accent, size: 22),
                 ),
@@ -843,32 +847,70 @@ class _CreateSessionSheet extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(song.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+                      Text(song.artist,
+                          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Icon(Icons.radio_button_checked_rounded, color: accent, size: 16),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Public toggle ─────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: _isPublic
+                  ? accent.withOpacity(0.1)
+                  : Colors.white.withOpacity(0.04),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: _isPublic ? accent.withOpacity(0.4) : Colors.white12,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _isPublic ? Icons.public_rounded : Icons.lock_outline_rounded,
+                  color: _isPublic ? accent : AppTheme.textSecondary,
+                  size: 22,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        song.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.textPrimary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                        _isPublic ? 'Public Room' : 'Private Room',
+                        style: TextStyle(
+                          color: _isPublic ? accent : AppTheme.textPrimary,
+                          fontWeight: FontWeight.w600, fontSize: 14,
                         ),
                       ),
                       Text(
-                        song.artist,
-                        style: const TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 12,
-                        ),
+                        _isPublic
+                            ? 'Visible in Social → Rooms tab'
+                            : 'Only people with your code can join',
+                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11),
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.radio_button_checked_rounded,
-                    color: accent, size: 16),
+                Switch.adaptive(
+                  value: _isPublic,
+                  activeColor: accent,
+                  onChanged: (v) => setState(() => _isPublic = v),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 24),
+
+          // ── Create button ─────────────────────────────────────
           BlocBuilder<TogetherBloc, TogetherState>(
             builder: (context, state) {
               return SizedBox(
@@ -879,10 +921,10 @@ class _CreateSessionSheet extends StatelessWidget {
                       : () {
                           context.read<TogetherBloc>().add(
                                 TogetherCreateSession(
-                                  song: song,
-                                  positionMs:
-                                      playerState.position.inMilliseconds,
-                                  isPlaying: playerState.isPlaying,
+                                  song:        song,
+                                  positionMs:  playerState.position.inMilliseconds,
+                                  isPlaying:   playerState.isPlaying,
+                                  isPublic:    _isPublic,
                                 ),
                               );
                           Navigator.pop(context);
@@ -891,21 +933,24 @@ class _CreateSessionSheet extends StatelessWidget {
                     backgroundColor: accent,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     elevation: 0,
                   ),
                   child: state.isLoading
                       ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2),
+                          width: 20, height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                         )
-                      : const Text(
-                          'Create Session',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 15),
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(_isPublic ? Icons.public_rounded : Icons.lock_outline_rounded, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              _isPublic ? 'Create Public Session' : 'Create Session',
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                            ),
+                          ],
                         ),
                 ),
               );
@@ -1614,7 +1659,14 @@ class _ActiveSessionScreenState extends State<_ActiveSessionScreen>
 
                               const SizedBox(height: 16),
 
-                              // ── YouTube Search Card ──
+                              // TASK-5: Up Next queue (shown when host has shared queue)
+                              if (session.queue.isNotEmpty)
+                                _UpNextCard(
+                                  session: session,
+                                  accent:  accent,
+                                ),
+
+                              const SizedBox(height: 16),
                               _YoutubeSearchCard(
                                 accent:  accent,
                                 isOwner: isOwner,
@@ -1857,6 +1909,18 @@ class _SessionCodeCard extends StatelessWidget {
                   child: Icon(Icons.copy_rounded, color: accent, size: 18),
                 ),
               ),
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: () => _showQrDialog(context, session.sessionCode, accent),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.qr_code_2_rounded, color: accent, size: 18),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -1871,6 +1935,113 @@ class _SessionCodeCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── QR code dialog ────────────────────────────────────────────
+
+void _showQrDialog(BuildContext context, String code, Color accent) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (_) => Container(
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: AppTheme.bgCard,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Share Room QR',
+            style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+              shadows: [Shadow(color: accent.withOpacity(0.4), blurRadius: 12)],
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Friends can scan this or type the code below',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          // QR code
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [BoxShadow(color: accent.withOpacity(0.3), blurRadius: 24, spreadRadius: 4)],
+            ),
+            child: QrImageView(
+              data: code,
+              version: QrVersions.auto,
+              size: 200,
+              eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Colors.black),
+              dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Colors.black),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Code display
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: accent.withOpacity(0.3)),
+            ),
+            child: Text(
+              code,
+              style: TextStyle(
+                fontSize: 32, fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimary, letterSpacing: 10,
+                shadows: [Shadow(color: accent.withOpacity(0.7), blurRadius: 18)],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: code));
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Code copied!'), behavior: SnackBarBehavior.floating),
+                );
+              },
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              label: const Text('Copy Code', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: accent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
 }
 
 // ── Upload progress ───────────────────────────────────────────
@@ -2209,6 +2380,13 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
   WebViewController? _webCtrl;
   bool _webLoading = true;
   String _loadedYtId = '';
+  bool _ytEmbedError = false;   // true when YT player fires error 150/152
+  String _ytEmbedErrorCode = '';
+  // BUG-YT-02 FIX: host periodically polls YT position + syncs play/pause
+  Timer? _ytSyncTimer;
+  // BUG-YT-03 FIX: track last session isPlaying for guest WebView sync
+  bool? _ytLastSessionIsPlaying;
+  bool _ytWebViewReady = false;  // true once YTReadyChan fires
 
   // ── Content-type detection ────────────────────────────────────
   _MediaType _getMediaType(SessionEntity s) {
@@ -2306,7 +2484,15 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
   }
 
   void _syncMedia(SessionEntity curr, SessionEntity prev) {
-    final type = _getMediaType(curr);
+    final type     = _getMediaType(curr);
+    final prevType = _getMediaType(prev);
+
+    // Cancel YT sync timer if we left YouTube mode
+    if (prevType == _MediaType.youtubeVideo && type != _MediaType.youtubeVideo) {
+      _ytSyncTimer?.cancel();
+      _ytSyncTimer = null;
+      _ytWebViewReady = false;
+    }
 
     if (type == _MediaType.localVideo) {
       if (curr.hasStreamUrl && curr.streamUrl != _loadedVidUrl) {
@@ -2319,9 +2505,67 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
     } else if (type == _MediaType.youtubeVideo) {
       final newId = _youtubeId;
       if (newId.isNotEmpty && newId != _loadedYtId) {
+        _ytWebViewReady = false;
+        _ytLastSessionIsPlaying = null;
         _initYouTubeWebView(newId);
+        return;
+      }
+      // BUG-YT-02 FIX: sync guest WebView play/pause when Firestore state changes
+      if (!widget.isOwner && _ytWebViewReady && _webCtrl != null) {
+        _syncGuestYtPlayState(curr, prev);
       }
     }
+  }
+
+  // BUG-YT-02 + BUG-YT-03 FIX: Push play/pause/seek to guest's WebView
+  // from Firestore session changes.
+  void _syncGuestYtPlayState(SessionEntity curr, SessionEntity prev) {
+    final ctrl = _webCtrl;
+    if (ctrl == null) return;
+
+    // Play/pause changed
+    if (curr.isPlaying != prev.isPlaying) {
+      _ytLastSessionIsPlaying = curr.isPlaying;
+      if (curr.isPlaying) {
+        ctrl.runJavaScript('try{ytPlayer&&ytPlayer.playVideo()}catch(e){}');
+      } else {
+        ctrl.runJavaScript('try{ytPlayer&&ytPlayer.pauseVideo()}catch(e){}');
+      }
+      debugPrint('[UnifiedPlayer] Guest YT: ${curr.isPlaying ? "play" : "pause"}');
+    }
+
+    // Host seeked (positionMs changed while paused, or significant drift during play)
+    if (curr.positionMs != prev.positionMs) {
+      final expectedMs = _calcExpectedMs(curr);
+      final posSec     = (expectedMs / 1000.0).toStringAsFixed(2);
+      ctrl.runJavaScript('try{ytPlayer&&ytPlayer.seekTo($posSec,true)}catch(e){}');
+      debugPrint('[UnifiedPlayer] Guest YT seek → ${expectedMs}ms');
+    }
+  }
+
+  // BUG-YT-02 FIX: Host periodic position push to Firestore
+  void _startHostYtSyncTimer() {
+    _ytSyncTimer?.cancel();
+    _ytSyncTimer = Timer.periodic(const Duration(seconds: 8), (_) async {
+      if (!mounted || !widget.isOwner) { _ytSyncTimer?.cancel(); return; }
+      final ctrl = _webCtrl;
+      if (ctrl == null || !_ytWebViewReady) return;
+      try {
+        final raw = await ctrl.runJavaScriptReturningResult(
+          'ytPlayer&&typeof ytPlayer.getCurrentTime==="function"'
+          '?Math.round(ytPlayer.getCurrentTime()*1000):-1',
+        );
+        final posMs = int.tryParse(raw.toString()) ?? -1;
+        if (posMs >= 0 && mounted) {
+          context.read<TogetherBloc>().add(TogetherPushYtPlayState(
+            widget.session.isPlaying, posMs,
+          ));
+          debugPrint('[UnifiedPlayer] Host YT periodic sync: pos=${posMs}ms');
+        }
+      } catch (e) {
+        debugPrint('[UnifiedPlayer] Host YT timer error: $e');
+      }
+    });
   }
 
   // ── Local MP4 player ─────────────────────────────────────────
@@ -2413,27 +2657,183 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
   }
 
   // ── YouTube WebView ────────────────────────────────────────────
-  void _initYouTubeWebView(String videoId) {
+  // BUG-YT-01 FIX: Made async so we can call setMediaPlaybackRequiresUserGesture.
+  // BUG-YT-02 FIX: Added YTStateChan to receive play/pause/seek from JS.
+  // BUG-YT-03 FIX: Added YTReadyChan; guest seeks to expected position on ready.
+  // BUG-YT-04 FIX: Loading overlay hidden when YTReadyChan fires, not onPageFinished.
+  // BUG-YT-06 FIX: Captured videoId as local variable to avoid stale getter in closure.
+  Future<void> _initYouTubeWebView(String videoId) async {
     _loadedYtId = videoId;
-    if (mounted) setState(() { _webLoading = true; });
+    _ytWebViewReady = false;
+    if (mounted) setState(() { _webLoading = true; _ytEmbedError = false; _ytEmbedErrorCode = ''; });
+
+    // Capture at init time so closures use the correct ID even after session changes
+    final capturedVideoId = videoId;
 
     const ua = 'Mozilla/5.0 (Linux; Android 10; Mobile) '
         'AppleWebKit/537.36 (KHTML, like Gecko) '
         'Chrome/120.0.0.0 Mobile Safari/537.36';
 
-    final id  = Uri.encodeComponent(videoId);
-    final url = 'https://www.youtube-nocookie.com/embed/$id'
-        '?autoplay=1&controls=1&modestbranding=1&rel=0&playsinline=1';
+    final safeId = videoId.replaceAll('"', '').replaceAll("'", '');
 
-    final ctrl = WebViewController()
+    // ── YouTube IFrame HTML ─────────────────────────────────────
+    // Channels used:
+    //   YTReadyChan  — fires when player is ready; Flutter handles seek + play
+    //   YTStateChan  — fires on every state change (play/pause/buffering/ended)
+    //                  payload: JSON {s: stateCode, t: currentTimeSec}
+    //   YTErrChan    — fires on embed errors (150/152/101/100)
+    final html = '''<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+  #player { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="player"></div>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+var ytPlayer;
+function onYouTubeIframeAPIReady() {
+  ytPlayer = new YT.Player('player', {
+    videoId: "$safeId",
+    playerVars: {
+      autoplay: 1,
+      controls: 1,
+      modestbranding: 1,
+      rel: 0,
+      playsinline: 1,
+      enablejsapi: 1,
+      fs: 1
+    },
+    events: {
+      onReady: function(e) {
+        // Notify Flutter that the player is ready.
+        // Flutter decides play/seek based on session state (host vs guest).
+        YTReadyChan.postMessage('ready');
+      },
+      onStateChange: function(e) {
+        // Send state + current time to Flutter so host can sync to Firestore.
+        var t = 0;
+        try { t = ytPlayer.getCurrentTime() || 0; } catch(err) {}
+        YTStateChan.postMessage(JSON.stringify({s: e.data, t: t}));
+      },
+      onError: function(e) {
+        // 150/152 = embedding disabled, 100 = not found, 101 = restricted
+        YTErrChan.postMessage(e.data.toString());
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>''';
+
+    // ── Build WebViewController ─────────────────────────────────
+    final ctrl = WebViewController();
+
+    // BUG-YT-01 FIX: Allow media autoplay on Android WITHOUT requiring a user
+    // gesture. Without this, the YouTube IFrame's playVideo() is silently
+    // blocked by Android WebView → video loads but stays on black screen.
+    if (ctrl.platform is AndroidWebViewController) {
+      await (ctrl.platform as AndroidWebViewController)
+          .setMediaPlaybackRequiresUserGesture(false);
+      debugPrint('[UnifiedPlayer] Android: setMediaPlaybackRequiresUserGesture(false)');
+    }
+
+    ctrl
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent(ua)
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageFinished: (_) {
-          if (mounted) setState(() => _webLoading = false);
+      // ── YTReadyChan: player ready → Flutter handles seek + play ──
+      ..addJavaScriptChannel(
+        'YTReadyChan',
+        onMessageReceived: (_) {
+          if (!mounted) return;
+          setState(() {
+            _webLoading    = false;  // BUG-YT-04 FIX: hide loader on actual ready
+            _ytWebViewReady = true;
+          });
+          final ctrl = _webCtrl;
+          if (ctrl == null) return;
+
+          if (widget.isOwner) {
+            // Host: play from current position
+            ctrl.runJavaScript('try{ytPlayer&&ytPlayer.playVideo()}catch(e){}');
+            // Start periodic position sync timer
+            _startHostYtSyncTimer();
+            debugPrint('[UnifiedPlayer] Host YT ready — playing');
+          } else {
+            // BUG-YT-03 FIX: Guest seeks to expected host position on player ready
+            final expectedMs = _calcExpectedMs(widget.session);
+            final posSec     = (expectedMs / 1000.0).toStringAsFixed(2);
+            final shouldPlay = widget.session.isPlaying;
+            _ytLastSessionIsPlaying = shouldPlay;
+            ctrl.runJavaScript(
+              'try{'
+              '  ytPlayer&&ytPlayer.seekTo($posSec,true);'
+              '  ${shouldPlay ? "ytPlayer&&ytPlayer.playVideo();" : "ytPlayer&&ytPlayer.pauseVideo();"}'
+              '}catch(e){}',
+            );
+            debugPrint('[UnifiedPlayer] Guest YT ready — seek=${expectedMs}ms play=$shouldPlay');
+          }
         },
+      )
+      // ── YTStateChan: state changes from IFrame → host pushes to Firestore ──
+      ..addJavaScriptChannel(
+        'YTStateChan',
+        onMessageReceived: (msg) {
+          if (!mounted) return;
+          try {
+            final data     = jsonDecode(msg.message) as Map<String, dynamic>;
+            final ytState  = (data['s'] as num?)?.toInt() ?? -1;
+            final timeSec  = (data['t'] as num?)?.toDouble() ?? 0.0;
+            final posMs    = (timeSec * 1000).round();
+
+            // YT IFrame state codes: -1=unstarted, 0=ended, 1=playing, 2=paused,
+            //                        3=buffering, 5=video cued
+            if (widget.isOwner) {
+              // BUG-YT-02 FIX: push play/pause/ended state to Firestore
+              if (ytState == 1) {
+                context.read<TogetherBloc>().add(TogetherPushYtPlayState(true, posMs));
+                debugPrint('[UnifiedPlayer] Host YT state=playing pos=${posMs}ms');
+              } else if (ytState == 2 || ytState == 0) {
+                context.read<TogetherBloc>().add(TogetherPushYtPlayState(false, posMs));
+                debugPrint('[UnifiedPlayer] Host YT state=${ytState == 0 ? "ended" : "paused"} pos=${posMs}ms');
+              }
+            }
+          } catch (e) {
+            debugPrint('[UnifiedPlayer] YTStateChan parse error: $e');
+          }
+        },
+      )
+      // ── YTErrChan: embed errors → show overlay + auto-retry ──
+      ..addJavaScriptChannel(
+        'YTErrChan',
+        onMessageReceived: (msg) {
+          debugPrint('[UnifiedPlayer] YT embed error code: ${msg.message}');
+          if (mounted) {
+            // BUG-YT-06 FIX: use capturedVideoId (local), NOT _youtubeId getter
+            // which may have changed if a new video was pushed to Firestore
+            // while this WebView was still loading.
+            context.read<TogetherBloc>().add(
+              TogetherYtEmbedError(capturedVideoId, msg.message),
+            );
+            setState(() {
+              _webLoading       = false;
+              _ytEmbedError     = true;
+              _ytEmbedErrorCode = msg.message;
+            });
+          }
+        },
+      )
+      ..setNavigationDelegate(NavigationDelegate(
+        // BUG-YT-04 FIX: onPageFinished no longer hides loader — YTReadyChan does.
+        // We still log errors here.
         onWebResourceError: (e) =>
-            debugPrint('[UnifiedPlayer] YT WebView error: ${e.description}'),
+            debugPrint('[UnifiedPlayer] YT WebView resource error: ${e.description}'),
         onNavigationRequest: (req) {
           if (req.url.contains('youtube') || req.url.contains('youtu.be')) {
             return NavigationDecision.navigate;
@@ -2441,10 +2841,7 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
           return NavigationDecision.prevent;
         },
       ))
-      ..loadRequest(
-        Uri.parse(url),
-        headers: {'Referer': 'https://www.youtube.com/'},
-      );
+      ..loadHtmlString(html, baseUrl: 'https://www.youtube.com');
 
     if (mounted) setState(() => _webCtrl = ctrl);
   }
@@ -2454,6 +2851,7 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
   void dispose() {
     _posTimer?.cancel();
     _bufferStallTimer?.cancel();
+    _ytSyncTimer?.cancel();        // BUG-YT-02 FIX
     _vidCtrl?.removeListener(_onVideoUpdate);
     _vidCtrl?.dispose();
     super.dispose();
@@ -2930,7 +3328,71 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
                 ),
               ),
             ),
+          // FIX BUG: Show custom error overlay when YouTube IFrame fires
+          // onError (150 = embedding disabled, 152 = content restriction, etc.)
+          // instead of showing YouTube's own ugly "Error code: 152 - 4" UI.
+          if (_ytEmbedError) _buildYtErrorOverlay(ytId),
         ]),
+      ),
+    );
+  }
+
+  Widget _buildYtErrorOverlay(String videoId) {
+    final isEmbedDisabled = _ytEmbedErrorCode == '150' ||
+        _ytEmbedErrorCode == '101' ||
+        _ytEmbedErrorCode == '152';
+    final String reason = isEmbedDisabled
+        ? 'Embedding disabled by the video owner'
+        : _ytEmbedErrorCode == '100'
+            ? 'Video not found or has been deleted'
+            : 'Playback error (code: $_ytEmbedErrorCode)';
+
+    return Positioned.fill(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline_rounded,
+                color: Color(0xFFFF0000), size: 36),
+            const SizedBox(height: 10),
+            const Text(
+              'This video can\'t be embedded',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              reason,
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => launchUrl(
+                Uri.parse('https://www.youtube.com/watch?v=$videoId'),
+                mode: LaunchMode.externalApplication,
+              ),
+              icon: const Icon(Icons.open_in_new_rounded, size: 15),
+              label: const Text('Watch on YouTube'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF0000),
+                foregroundColor: Colors.white,
+                textStyle: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 10),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -3092,6 +3554,134 @@ class _ControlBtn extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: accent, size: size),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  UP NEXT CARD  (TASK-5: synced queue display)
+// ═══════════════════════════════════════════════════════════════
+
+class _UpNextCard extends StatelessWidget {
+  final SessionEntity session;
+  final Color accent;
+  const _UpNextCard({required this.session, required this.accent});
+
+  String _fmtDuration(int ms) {
+    final s = (ms ~/ 1000);
+    final m = s ~/ 60;
+    final sec = s % 60;
+    return '${m.toString().padLeft(1, '0')}:${sec.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final queue = session.queue;
+    if (queue.isEmpty) return const SizedBox.shrink();
+
+    // Find current song, then show up to 5 songs after it
+    final currentIdx = queue.indexWhere((q) => q['isCurrent'] == true);
+    final upNext = currentIdx >= 0
+        ? queue.skip(currentIdx + 1).take(5).toList()
+        : <Map<String, dynamic>>[];
+
+    if (upNext.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.bgCard,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.07), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.queue_music_rounded, color: accent, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                'Up Next',
+                style: TextStyle(
+                  color: accent,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${queue.length} songs',
+                style: const TextStyle(
+                    color: AppTheme.textSecondary, fontSize: 11),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...upNext.asMap().entries.map((e) {
+            final item = e.value;
+            final title    = item['title']     as String? ?? 'Unknown';
+            final artist   = item['artist']    as String? ?? '';
+            final durMs    = item['durationMs'] as int?    ?? 0;
+            final isVideo  = item['isVideo']   as bool?   ?? false;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      isVideo
+                          ? Icons.videocam_rounded
+                          : Icons.music_note_rounded,
+                      color: AppTheme.textSecondary,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (artist.isNotEmpty)
+                          Text(
+                            artist,
+                            style: const TextStyle(
+                                color: AppTheme.textSecondary, fontSize: 11),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (durMs > 0)
+                    Text(
+                      _fmtDuration(durMs),
+                      style: const TextStyle(
+                          color: AppTheme.textSecondary, fontSize: 11),
+                    ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }

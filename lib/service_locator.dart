@@ -8,6 +8,7 @@ import 'services/settings_service.dart';
 import 'features/together/services/together_auth_service.dart';
 import 'features/together/services/together_session_service.dart';
 import 'features/together/services/together_storage_service.dart';
+import 'features/social/services/social_service.dart';
 
 class ServiceLocator {
   ServiceLocator._();
@@ -20,6 +21,7 @@ class ServiceLocator {
   late TogetherAuthService     togetherAuthService;
   late TogetherSessionService  togetherSessionService;
   late TogetherStorageService  togetherStorageService;
+  late SocialService           socialService;
 
   Future<void> init() async {
     scannerService = MusicScannerService();
@@ -32,6 +34,7 @@ class ServiceLocator {
     togetherAuthService    = TogetherAuthService();
     togetherSessionService = TogetherSessionService();
     togetherStorageService = TogetherStorageService();
+    socialService          = SocialService();
 
     final handler = BeatFlowAudioHandler();
     try {

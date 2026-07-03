@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:http/http.dart' as http;
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart';
@@ -34,13 +35,17 @@ class TogetherCreateSession extends TogetherEvent {
   final SongEntity song;
   final int positionMs;
   final bool isPlaying;
+  final bool isPublic;
+  final String country;
   const TogetherCreateSession({
     required this.song,
     required this.positionMs,
     required this.isPlaying,
+    this.isPublic = false,
+    this.country  = '',
   });
   @override
-  List<Object?> get props => [song.id, positionMs, isPlaying];
+  List<Object?> get props => [song.id, positionMs, isPlaying, isPublic];
 }
 
 class TogetherJoinSession extends TogetherEvent {
@@ -63,13 +68,19 @@ class TogetherPushPlayback extends TogetherEvent {
   final SongEntity song;
   final int positionMs;
   final bool isPlaying;
+  // TASK-5: minimal queue snapshot for syncing "Up Next" to guests.
+  // null = don't update queue in Firestore (seek-only or play/pause update).
+  final List<SongEntity>? queue;
+  final int queueIndex;
   const TogetherPushPlayback({
     required this.song,
     required this.positionMs,
     required this.isPlaying,
+    this.queue,
+    this.queueIndex = 0,
   });
   @override
-  List<Object?> get props => [song.id, positionMs, isPlaying];
+  List<Object?> get props => [song.id, positionMs, isPlaying, queueIndex, queue?.length];
 }
 
 class TogetherPushSeek extends TogetherEvent {
@@ -159,11 +170,33 @@ class TogetherShareYoutubeTrack extends TogetherEvent {
   List<Object?> get props => [track.videoId];
 }
 
+/// Fired by the WebView player when YouTube IFrame fires an embed error
+/// (150/152 = embedding disabled, 101 = same, 100 = video not found).
+/// The bloc marks this videoId as failed and auto-retries with the next
+/// embeddable candidate from ytResults.
+class TogetherYtEmbedError extends TogetherEvent {
+  final String videoId;
+  final String errorCode;
+  const TogetherYtEmbedError(this.videoId, this.errorCode);
+  @override
+  List<Object?> get props => [videoId, errorCode];
+}
+
 class _YoutubeSearchDone extends TogetherEvent {
   final List<YoutubeTrack> results;
   const _YoutubeSearchDone(this.results);
   @override
   List<Object?> get props => [results.length];
+}
+
+/// Fired by host's YouTube WebView when onStateChange fires (play/pause/seek).
+/// Pushes isPlaying + positionMs to Firestore so guests can sync.
+class TogetherPushYtPlayState extends TogetherEvent {
+  final bool isPlaying;
+  final int positionMs;
+  const TogetherPushYtPlayState(this.isPlaying, this.positionMs);
+  @override
+  List<Object?> get props => [isPlaying, positionMs];
 }
 
 // ── Video Call ────────────────────────────────────────────────
@@ -182,6 +215,18 @@ class TogetherSetOnlineStatus extends TogetherEvent {
   const TogetherSetOnlineStatus(this.isOnline);
   @override
   List<Object?> get props => [isOnline];
+}
+
+// ── Internal: Firebase async auth restoration ─────────────────
+// BUG-SOCIAL-AUTH FIX: Firebase Auth restores the user asynchronously
+// after app restart. _restoreAuth() may run before currentUser is available,
+// leaving TogetherBloc.uid = null. This event is fired by the authStateChanges
+// stream listener so SocialScreen can auto-init without requiring Together tab.
+class _TogetherAuthRestored extends TogetherEvent {
+  final String uid;
+  const _TogetherAuthRestored(this.uid);
+  @override
+  List<Object?> get props => [uid];
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -207,6 +252,10 @@ class TogetherState extends Equatable {
   final bool mediaUploading;
   // ── Video call ───────────────────────────────────────────────
   final bool inVideoCall;
+  // ── YouTube embed failure tracking ───────────────────────────
+  /// Video IDs that fired error 150/152 in the WebView player.
+  /// Used to skip already-failed candidates on auto-retry.
+  final Set<String> ytFailedIds;
 
   const TogetherState({
     this.status = TogetherStatus.idle,
@@ -222,11 +271,19 @@ class TogetherState extends Equatable {
     this.ytLoading = false,
     this.mediaUploading = false,
     this.inVideoCall = false,
+    this.ytFailedIds = const {},
   });
 
-  bool get isInSession  => status == TogetherStatus.active && session != null;
-  bool get isLoading    => status == TogetherStatus.loading ||
-                           status == TogetherStatus.uploading;
+  // TASK-1 FIX: was `status == active && session != null`.
+  // When host's song changes → _uploadSongAudio fires _TogetherSetUploading →
+  // status = uploading → isInSession was false → LandingScreen shown = "session left".
+  // Fix: both active AND uploading are valid in-session states.
+  bool get isInSession  => session != null &&
+                           (status == TogetherStatus.active ||
+                            status == TogetherStatus.uploading);
+  // isLoading is now ONLY the initial create/join loading (not upload).
+  // This prevents the Create Session button being disabled during uploads.
+  bool get isLoading    => status == TogetherStatus.loading;
   bool get isUploading  => status == TogetherStatus.uploading;
 
   TogetherState copyWith({
@@ -245,6 +302,7 @@ class TogetherState extends Equatable {
     bool? ytLoading,
     bool? mediaUploading,
     bool? inVideoCall,
+    Set<String>? ytFailedIds,
   }) {
     return TogetherState(
       status:         status         ?? this.status,
@@ -260,6 +318,7 @@ class TogetherState extends Equatable {
       ytLoading:      ytLoading      ?? this.ytLoading,
       mediaUploading: mediaUploading ?? this.mediaUploading,
       inVideoCall:    inVideoCall    ?? this.inVideoCall,
+      ytFailedIds:    ytFailedIds    ?? this.ytFailedIds,
     );
   }
 
@@ -285,6 +344,7 @@ class TogetherState extends Equatable {
         ytResults.length,   // length so list identity doesn't block emit
         ytSearching,
         ytLoading,
+        ytFailedIds.length, // track failed embed IDs
         // ── Media upload ──
         mediaUploading,
         inVideoCall,
@@ -314,6 +374,7 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
   static const _kSeekGuardMs = 10000; // 10 seconds
 
   StreamSubscription<SessionEntity?>? _sessionSub;
+  StreamSubscription?                 _authSub;
 
   TogetherBloc({
     required TogetherAuthService    auth,
@@ -343,7 +404,12 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
     on<TogetherPlayYoutube>       (_onPlayYoutube);
     on<TogetherPlayYoutubeVideo>  (_onPlayYoutubeVideo);
     on<TogetherShareYoutubeTrack> (_onShareYoutubeTrack);
-    on<_YoutubeSearchDone>        ((e, emit) => emit(state.copyWith(ytResults: e.results, ytSearching: false)));
+    on<TogetherYtEmbedError>      (_onYtEmbedError);
+    // Reset failed IDs when new search results arrive (fresh query = fresh slate)
+    on<_YoutubeSearchDone>        ((e, emit) => emit(state.copyWith(
+      ytResults: e.results, ytSearching: false, ytFailedIds: const {},
+    )));
+    on<TogetherPushYtPlayState>   (_onPushYtPlayState);
     on<TogetherStartVideoCall>    (_onStartVideoCall);
     on<TogetherEndVideoCall>      (_onEndVideoCall);
     on<TogetherJoinVideoCall>     ((_, emit) => emit(state.copyWith(inVideoCall: true)));
@@ -351,6 +417,12 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
     on<TogetherAcceptHostChange>  (_onAcceptHostChange);
     on<TogetherRejectHostChange>  (_onRejectHostChange);
     on<TogetherSetOnlineStatus>   (_onSetOnlineStatus);
+    // BUG-SOCIAL-AUTH FIX: async auth restoration from Firebase
+    on<_TogetherAuthRestored>     ((e, emit) {
+      if (state.uid == null) {
+        emit(state.copyWith(uid: e.uid, displayName: _auth.displayName));
+      }
+    });
 
     _restoreAuth();
   }
@@ -359,6 +431,16 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
     if (_auth.isSignedIn) {
       emit(state.copyWith(uid: _auth.uid, displayName: _auth.displayName));
     }
+    // BUG-SOCIAL-AUTH FIX: Firebase Auth restores the signed-in user from disk
+    // asynchronously — currentUser may be null on the first frame even if the
+    // user was signed in during a previous session. Listen to authStateChanges
+    // so we pick up the user the moment Firebase finishes restoring, without
+    // requiring the user to open the Together tab first.
+    _authSub = _auth.authStateChanges.listen((user) {
+      if (user != null && state.uid == null) {
+        add(_TogetherAuthRestored(user.uid));
+      }
+    });
     // Restore persisted upload URL cache so same song is never re-uploaded
     _loadUrlCache();
   }
@@ -455,6 +537,8 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
       positionMs:     event.positionMs,
       isPlaying:      event.isPlaying,
       isVideo:        event.song.isVideo,
+      isPublic:       event.isPublic,
+      country:        event.country,
     );
 
     if (session == null) {
@@ -1037,6 +1121,11 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
     // Always use cached URL — never send null when we have a URL
     final streamUrl = _uploadedUrls[newSongId];
 
+    // TASK-5: Serialize queue for Firestore sync (display-only, no file paths)
+    final queueJson = event.queue != null
+        ? _serializeQueue(event.queue!, event.queueIndex)
+        : null;
+
     try {
       await _sessionService.pushPlaybackState(
         sessionId:      session.sessionId,
@@ -1051,10 +1140,28 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
         // BUG-VID03 FIX: pass isVideo so guests see the video card
         // (was always defaulting to false, hiding the video player card)
         isVideo:        event.song.isVideo,
+        queue:          queueJson, // TASK-5
       );
     } catch (e) {
       debugPrint('[Together] pushPlayback error: $e');
     }
+  }
+
+  // TASK-5: Build minimal queue JSON — title/artist/duration only.
+  // NO file paths (guests can't use local paths).
+  // Capped at 200 items to stay well within Firestore 1MB doc limit.
+  List<Map<String, dynamic>> _serializeQueue(
+      List<SongEntity> queue, int currentIndex) {
+    final capped = queue.length > 200 ? queue.sublist(0, 200) : queue;
+    return capped.asMap().entries.map((e) => {
+      'idx':        e.key,
+      'id':         e.value.id,
+      'title':      e.value.title,
+      'artist':     e.value.artist,
+      'durationMs': e.value.duration,
+      'isVideo':    e.value.isVideo,
+      'isCurrent':  e.key == currentIndex,
+    }).toList();
   }
 
   // ── Push seek ──────────────────────────────────────────────
@@ -1383,6 +1490,10 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
     emit(state.copyWith(ytLoading: true, clearError: true));
 
     try {
+      // Pre-validate embed availability via oEmbed API (uses _isEmbeddable helper).
+      final embedCheck = await _checkEmbedAndEmitError(track, emit);
+      if (!embedCheck) return; // error already emitted
+
       // Push isVideo=true to Firestore — guests detect this and open
       // a YouTube WebView player with the same videoId.
       // No audio stream URL needed: each guest's WebView plays YouTube directly.
@@ -1409,6 +1520,113 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
     }
   }
 
+  // ── YouTube embed error → auto-retry with next VALIDATED candidate ──────
+  /// Called when the WebView YouTube IFrame fires onError (code 150/152/101).
+  /// BUG-YT-RETRY FIX: previously dispatched the next candidate without
+  /// pre-validating it via oEmbed, causing repeat embed-error loops when
+  /// several consecutive search results are non-embeddable. Now each candidate
+  /// is oEmbed-checked before dispatch; failed ones are marked and skipped.
+  Future<void> _onYtEmbedError(
+      TogetherYtEmbedError event, Emitter<TogetherState> emit) async {
+    // Record this videoId as failed
+    var failed = <String>{...state.ytFailedIds, event.videoId};
+    emit(state.copyWith(ytFailedIds: failed));
+
+    // Only auto-retry for embedding-disabled errors (not e.g. network errors)
+    const embedErrCodes = {'150', '152', '101'};
+    if (!embedErrCodes.contains(event.errorCode)) {
+      debugPrint('[Together] YT error ${event.errorCode} on ${event.videoId} — '
+          'not an embed error, skipping auto-retry.');
+      return;
+    }
+
+    // Walk through remaining candidates, oEmbed-check each before retrying
+    final candidates = state.ytResults.where((t) => !failed.contains(t.videoId)).toList();
+    YoutubeTrack? embeddable;
+
+    for (final candidate in candidates) {
+      final ok = await _isEmbeddable(candidate.videoId);
+      if (ok) {
+        embeddable = candidate;
+        break;
+      }
+      // Pre-failed via oEmbed — mark and continue
+      failed = {...failed, candidate.videoId};
+      debugPrint('[Together] oEmbed pre-check failed for "${candidate.title}" '
+          '(${candidate.videoId}) — skipping in retry chain.');
+    }
+
+    emit(state.copyWith(ytFailedIds: failed));
+
+    if (embeddable != null) {
+      debugPrint('[Together] Embed error ${event.errorCode} on ${event.videoId}. '
+          'Auto-retrying with validated: "${embeddable.title}" (${embeddable.videoId})');
+      add(TogetherPlayYoutubeVideo(embeddable));
+    } else {
+      debugPrint('[Together] Embed error ${event.errorCode} on ${event.videoId}. '
+          'No embeddable candidates remain — showing Watch on YouTube fallback.');
+      // All candidates exhausted; the error overlay + "Watch on YouTube" button
+      // is already visible in the WebView layer — nothing more to emit.
+    }
+  }
+
+  // ── oEmbed embeddability check ────────────────────────────────
+  /// Returns true if the video is embeddable (oEmbed 200), false if not
+  /// (401/403/404). Returns true on timeout/network error to avoid blocking
+  /// playback for a momentary connectivity issue.
+  Future<bool> _isEmbeddable(String videoId) async {
+    try {
+      final uri = Uri.parse('https://www.youtube.com/oembed').replace(
+        queryParameters: {
+          'url':    'https://www.youtube.com/watch?v=$videoId',
+          'format': 'json',
+        },
+      );
+      final resp = await http.get(uri).timeout(const Duration(seconds: 5));
+      return resp.statusCode == 200;
+    } catch (_) {
+      return true; // network/timeout → optimistically allow
+    }
+  }
+
+  // ── oEmbed check with error emit (used by _onPlayYoutubeVideo) ───────────
+  /// Runs _isEmbeddable and emits a user-visible error if the video is blocked.
+  /// Returns true if embeddable (caller should proceed), false if blocked
+  /// (error already emitted, caller should return).
+  Future<bool> _checkEmbedAndEmitError(
+      YoutubeTrack track, Emitter<TogetherState> emit) async {
+    try {
+      final uri = Uri.parse('https://www.youtube.com/oembed').replace(
+        queryParameters: {
+          'url':    'https://www.youtube.com/watch?v=${track.videoId}',
+          'format': 'json',
+        },
+      );
+      final resp = await http.get(uri).timeout(const Duration(seconds: 6));
+      if (resp.statusCode == 401 || resp.statusCode == 403) {
+        emit(state.copyWith(
+          ytLoading: false,
+          error: '❌ "${track.title}" cannot be embedded '
+                 '(embedding disabled by the video owner). '
+                 'Try a different video.',
+        ));
+        return false;
+      }
+      if (resp.statusCode == 404) {
+        emit(state.copyWith(
+          ytLoading: false,
+          error: '❌ Video not found or has been deleted.',
+        ));
+        return false;
+      }
+      return true; // 200 OK or other status → proceed
+    } catch (_) {
+      // Timeout / network error — allow through optimistically
+      debugPrint('[Together] oEmbed check failed (network), allowing through');
+      return true;
+    }
+  }
+
   // ── Share YouTube track as chat card ─────────────────────
   Future<void> _onShareYoutubeTrack(
       TogetherShareYoutubeTrack event, Emitter<TogetherState> emit) async {
@@ -1432,6 +1650,22 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
       );
     } catch (e) {
       debugPrint('[Together] shareYoutubeTrack error: $e');
+    }
+  }
+
+  // ── YouTube video state sync (host WebView → Firestore) ───────
+  Future<void> _onPushYtPlayState(
+      TogetherPushYtPlayState event, Emitter<TogetherState> emit) async {
+    final session = state.session;
+    if (session == null || !state.isOwner) return;
+    try {
+      await _sessionService.pushYtState(
+        sessionId:  session.sessionId,
+        isPlaying:  event.isPlaying,
+        positionMs: event.positionMs,
+      );
+    } catch (e) {
+      debugPrint('[Together] _onPushYtPlayState error: $e');
     }
   }
 
@@ -1492,6 +1726,7 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
     // [C] Cancel any active upload when bloc is disposed
     _storageService.cancelActiveUpload();
     await _sessionSub?.cancel();
+    await _authSub?.cancel();
     _youtubeService.dispose();
     // BUG-H02 FIX: stop heartbeat if still in session (e.g. hot-restart / crash)
     final session = state.session;

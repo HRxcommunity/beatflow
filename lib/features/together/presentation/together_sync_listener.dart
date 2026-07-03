@@ -33,6 +33,9 @@ class _TogetherSyncListenerState extends State<TogetherSyncListener>
   bool?   _lastPushedIsPlaying;
   // BUG-023: track position to detect host seeks (position jumps > 5s)
   int?    _lastPushedPositionMs;
+  // TASK-5: track queue length + index to detect queue changes
+  int?    _lastPushedQueueLength;
+  int?    _lastPushedQueueIndex;
   bool    _ownerPushDelayActive = false;
   bool    _wasOwner = false;
   // BUG-T03/Y01 FIX: re-resolve expired YouTube CDN URLs for guests
@@ -89,6 +92,8 @@ class _TogetherSyncListenerState extends State<TogetherSyncListener>
     _lastPushedSongId     = null;
     _lastPushedIsPlaying  = null;
     _lastPushedPositionMs = null; // BUG-023: reset seek tracking
+    _lastPushedQueueLength = null; // TASK-5
+    _lastPushedQueueIndex  = null; // TASK-5
   }
 
   // ── Init / Dispose ────────────────────────────────────────────
@@ -159,11 +164,14 @@ class _TogetherSyncListenerState extends State<TogetherSyncListener>
     // ── FIX Bug2: seed push state from current player snapshot ──
     final currentPs = context.read<PlayerBloc>().state;
     if (currentPs.currentSong != null) {
-      _lastPushedSongId     = currentPs.currentSong!.id.toString();
-      _lastPushedIsPlaying  = currentPs.isPlaying;
-      _lastPushedPositionMs = currentPs.position.inMilliseconds; // BUG-023
+      _lastPushedSongId      = currentPs.currentSong!.id.toString();
+      _lastPushedIsPlaying   = currentPs.isPlaying;
+      _lastPushedPositionMs  = currentPs.position.inMilliseconds; // BUG-023
+      _lastPushedQueueLength = currentPs.queue.length;            // TASK-5
+      _lastPushedQueueIndex  = currentPs.currentIndex;            // TASK-5
       debugPrint('[Together] Owner: seeded push state — '
-          'song=$_lastPushedSongId, playing=$_lastPushedIsPlaying');
+          'song=$_lastPushedSongId, playing=$_lastPushedIsPlaying, '
+          'queue=${currentPs.queue.length} songs @ ${currentPs.currentIndex}');
     }
     // ────────────────────────────────────────────────────────────
 
@@ -199,13 +207,21 @@ class _TogetherSyncListenerState extends State<TogetherSyncListener>
         _lastPushedPositionMs != null &&
         (posMs - _lastPushedPositionMs!).abs() > 5000;
 
+    // TASK-5: detect queue change (new song added, removed, or reordered)
+    final queueChanged = ps.queue.length != _lastPushedQueueLength ||
+        ps.currentIndex != _lastPushedQueueIndex;
+
     // Keep tracking position even when we don't push
     _lastPushedPositionMs = posMs;
 
-    if (!songChanged && !playChanged && !isSeeked) return;
+    if (!songChanged && !playChanged && !isSeeked && !queueChanged) return;
 
     _lastPushedSongId    = songId;
     _lastPushedIsPlaying = ps.isPlaying;
+    if (queueChanged || songChanged) {
+      _lastPushedQueueLength = ps.queue.length; // TASK-5
+      _lastPushedQueueIndex  = ps.currentIndex; // TASK-5
+    }
 
     if (isSeeked) {
       // Host seek — only push new position to Firestore
@@ -215,12 +231,15 @@ class _TogetherSyncListenerState extends State<TogetherSyncListener>
     }
 
     debugPrint('[Together] Owner push: songChanged=$songChanged '
-        'playChanged=$playChanged pos=${posMs}ms isPlaying=${ps.isPlaying}');
+        'playChanged=$playChanged queueChanged=$queueChanged pos=${posMs}ms isPlaying=${ps.isPlaying}');
 
     context.read<TogetherBloc>().add(TogetherPushPlayback(
           song:       song,
           positionMs: songChanged ? 0 : posMs,
           isPlaying:  ps.isPlaying,
+          // TASK-5: include queue on song change or queue change
+          queue:      (songChanged || queueChanged) ? ps.queue : null,
+          queueIndex: ps.currentIndex,
         ));
   }
 
@@ -284,6 +303,12 @@ class _TogetherSyncListenerState extends State<TogetherSyncListener>
   ) async {
     final sessionSongId = session.songId;
     if (sessionSongId.isEmpty) return;
+
+    // BUG-YT-05 FIX: YouTube video mode is handled entirely by the WebView
+    // inside _TogetherUnifiedPlayer. PlayerBloc has nothing to play here —
+    // the audio player is not used for YouTube video sessions. Calling
+    // PlayerResume() / PlayerPause() on an empty player causes silent errors.
+    if (session.isVideo && session.songData.startsWith('yt:')) return;
 
     final streamUrlChanged = session.hasStreamUrl &&
         session.streamUrl != _lastSyncedStreamUrl;

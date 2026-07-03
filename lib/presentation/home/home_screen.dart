@@ -15,6 +15,7 @@ import '../../widgets/common/song_artwork_widget.dart';
 import '../../features/together/presentation/together_session_badge.dart';
 import '../../features/together/bloc/together_bloc.dart';
 import '../../features/browser/hrx_browse_home_card.dart';
+import '../../features/social/presentation/social_screen.dart';
 // OTA Update
 import '../../services/update_service.dart';
 import '../../features/update/update_dialog.dart';
@@ -39,7 +40,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _tabCtrls = List.generate(
-      5,
+      6,
       (i) => AnimationController(
         vsync: this,
         duration: const Duration(milliseconds: 220),
@@ -97,13 +98,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Scaffold(
       backgroundColor: hasBg ? Colors.transparent : AppTheme.bgDeep,
       body: Stack(
-        children: List.generate(5, (i) {
+        children: List.generate(6, (i) {
           final tabs = const [
             _HomeTab(),
             _SongsTab(),
             _AlbumsTab(),
             _ArtistsTab(),
             _PlaylistsTab(),
+            SocialScreen(),
           ];
           return Offstage(
             offstage: _currentIndex != i,
@@ -153,6 +155,7 @@ class _PremiumNavBar extends StatelessWidget {
     (Icons.album_rounded, Icons.album_outlined, 'Albums'),
     (Icons.person_rounded, Icons.person_outline_rounded, 'Artists'),
     (Icons.queue_music_rounded, Icons.queue_music_outlined, 'Playlists'),
+    (Icons.people_rounded, Icons.people_outline_rounded, 'Social'),
   ];
 
   @override
@@ -180,17 +183,18 @@ class _PremiumNavBar extends StatelessWidget {
       child: Padding(
         // Push buttons UP so they sit in the 70dp zone, not under the nav bar
         padding: EdgeInsets.only(bottom: bottomPadding),
+        // BUG-NAV-OVERFLOW FIX: previously used SizedBox(width:64) per item →
+        // 6×64=384px > screen width → "RIGHT OVERFLOWED BY 30 PIXELS" error.
+        // Fix: wrap each item in Expanded so they share available width equally.
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: List.generate(_items.length, (i) {
           final (active, inactive, label) = _items[i];
           final isSelected = i == selectedIndex;
-          return GestureDetector(
+          return Expanded(
+            child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => onDestinationSelected(i),
-            child: SizedBox(
-              width: 64,
-              child: Column(
+            child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   AnimatedContainer(
@@ -216,7 +220,7 @@ class _PremiumNavBar extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
+            ),
             ),
           );
         }),

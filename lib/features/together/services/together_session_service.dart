@@ -34,7 +34,9 @@ class TogetherSessionService {
     required int songDurationMs,
     required int positionMs,
     required bool isPlaying,
-    bool isVideo = false,
+    bool isVideo    = false,
+    bool isPublic   = false,
+    String country  = '',
   }) async {
     try {
       String code;
@@ -64,10 +66,12 @@ class TogetherSessionService {
         positionMs:     positionMs,
         isPlaying:      isPlaying,
         isVideo:        isVideo,
+        isPublic:       isPublic,
+        country:        country,
         updatedAt:         Timestamp.now(),
-        playbackUpdatedAt: Timestamp.now(), // BUG-S01 FIX
+        playbackUpdatedAt: Timestamp.now(),
         members:           [ownerMember.toMap()],
-        chatMessages:   [], // kept for backward compat, always empty now
+        chatMessages:   [],
       );
 
       await docRef.set(model.toFirestore());
@@ -76,6 +80,24 @@ class TogetherSessionService {
       debugPrint('[Together] createSession error: $e');
       return null;
     }
+  }
+
+  // ── Public Rooms (Social) ─────────────────────────────────────
+  /// Streams all public (isPublic=true, not ending) sessions,
+  /// sorted by member count descending. Used by SocialBloc.
+  Stream<List<SessionEntity>> watchPublicRooms() {
+    return _sessions
+        .where('isPublic', isEqualTo: true)
+        .limit(60)
+        .snapshots()
+        .map((snap) {
+      final list = snap.docs
+          .map((d) => SessionModel.fromFirestore(d).toEntity())
+          .where((s) => !s.isEnding)
+          .toList();
+      list.sort((a, b) => b.memberCount.compareTo(a.memberCount));
+      return list;
+    });
   }
 
   // ── Update stream URL ─────────────────────────────────────────
@@ -205,6 +227,7 @@ class TogetherSessionService {
     required int positionMs,
     required bool isPlaying,
     bool isVideo = false,
+    List<Map<String, dynamic>>? queue, // TASK-5: optional queue snapshot
   }) async {
     try {
       // BUG-002: always write streamUrl — if null/empty, write '' to clear the
@@ -222,6 +245,8 @@ class TogetherSessionService {
         'isVideo':        isVideo,
         'updatedAt':      Timestamp.now(),
         'playbackUpdatedAt': Timestamp.now(), // BUG-S01 FIX: separate playback anchor
+        // TASK-5: only write queue when provided and non-empty
+        if (queue != null && queue.isNotEmpty) 'queue': queue,
       };
 
       await _sessions.doc(sessionId).update(data);
@@ -243,6 +268,28 @@ class TogetherSessionService {
       });
     } catch (e) {
       debugPrint('[Together] pushSeek error: $e');
+    }
+  }
+
+  // ── YouTube video play/pause sync ─────────────────────────────
+  /// Lightweight update for YouTube video mode: only writes isPlaying +
+  /// positionMs. Does NOT overwrite song metadata or streamUrl.
+  /// Called by host's WebView when the YouTube player fires onStateChange.
+  Future<void> pushYtState({
+    required String sessionId,
+    required bool isPlaying,
+    required int positionMs,
+  }) async {
+    try {
+      await _sessions.doc(sessionId).update({
+        'isPlaying':         isPlaying,
+        'positionMs':        positionMs,
+        'updatedAt':         Timestamp.now(),
+        'playbackUpdatedAt': Timestamp.now(),
+      });
+      debugPrint('[Together] pushYtState → isPlaying=$isPlaying pos=${positionMs}ms');
+    } catch (e) {
+      debugPrint('[Together] pushYtState error: $e');
     }
   }
 

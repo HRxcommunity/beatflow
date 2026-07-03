@@ -13,11 +13,13 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
 import 'presentation/player/player_bloc.dart';
+import 'domain/entities/player_state_entity.dart';
 import 'presentation/songs/library_bloc.dart';
 import 'presentation/settings/settings_bloc.dart';
 import 'features/together/bloc/together_bloc.dart';
 import 'features/together/bloc/game_bloc.dart';
 import 'features/together/presentation/together_sync_listener.dart';
+import 'features/social/bloc/social_bloc.dart';
 import 'features/ai_vocab/vocab_notif_service.dart';
 import 'widgets/common/app_background.dart';
 
@@ -100,6 +102,13 @@ class BeatFlowApp extends StatelessWidget {
         // listen to game invites even when user is on a non-Together screen.
         BlocProvider(
           create: (_) => GameBloc(),
+        ),
+        // Social — friends, activity feed, public rooms
+        BlocProvider(
+          create: (_) => SocialBloc(
+            socialService:  sl.socialService,
+            sessionService: sl.togetherSessionService,
+          ),
         ),
         RepositoryProvider<SongRepository>.value(value: sl.songRepository),
       ],
@@ -324,6 +333,28 @@ class _TogetherNotificationOverlayState
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
+        // ── Social activity sync — broadcast what's playing ──────────────
+        BlocListener<PlayerBloc, PlayerStateEntity>(
+          listenWhen: (prev, curr) =>
+              prev.currentSong?.id != curr.currentSong?.id ||
+              prev.isPlaying != curr.isPlaying,
+          listener: (ctx, ps) {
+            final tb  = ctx.read<TogetherBloc>().state;
+            final soc = ctx.read<SocialBloc>();
+            if (ps.currentSong == null) {
+              soc.add(SocialClearActivity());
+              return;
+            }
+            if (ps.isPlaying) {
+              soc.add(SocialUpdateMyActivity(
+                songTitle:   ps.currentSong!.title,
+                songArtist:  ps.currentSong!.artist,
+                isInSession: tb.isInSession,
+                sessionCode: tb.session?.sessionCode,
+              ));
+            }
+          },
+        ),
         BlocListener<TogetherBloc, TogetherState>(
           listenWhen: (prev, curr) =>
               prev.isInSession != curr.isInSession ||

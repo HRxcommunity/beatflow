@@ -199,6 +199,13 @@ class SessionEntity extends Equatable {
   // ── Video content ─────────────────────────────────────────────
   // true when shared content is a video file (local MP4 or YouTube video mode)
   final bool isVideo;
+  // TASK-5: Host's minimal queue snapshot — displayed as "Up Next" for guests.
+  // Contains only {idx, id, title, artist, durationMs, isVideo, isCurrent}.
+  // No local file paths — display-only metadata.
+  final List<Map<String, dynamic>> queue;
+  // ── Social / Public rooms ────────────────────────────────────
+  final bool isPublic;    // visible in social public rooms feed
+  final String country;   // ISO-2 country code e.g. 'IN', 'US'
 
   const SessionEntity({
     required this.sessionId,
@@ -222,6 +229,9 @@ class SessionEntity extends Equatable {
     this.agoraChannel,
     this.callActive = false,
     this.isVideo = false,
+    this.queue = const [],  // TASK-5
+    this.isPublic = false,
+    this.country  = '',
   });
 
   bool get hasStreamUrl => streamUrl.isNotEmpty && streamUrl.startsWith('http');
@@ -255,6 +265,9 @@ class SessionEntity extends Equatable {
     bool? callActive,
     bool clearAgoraChannel = false,
     bool? isVideo,
+    List<Map<String, dynamic>>? queue, // TASK-5
+    bool? isPublic,
+    String? country,
   }) {
     return SessionEntity(
       sessionId:          sessionId       ?? this.sessionId,
@@ -270,8 +283,8 @@ class SessionEntity extends Equatable {
       positionMs:         positionMs      ?? this.positionMs,
       isPlaying:          isPlaying       ?? this.isPlaying,
       updatedAt:          updatedAt       ?? this.updatedAt,
-      playbackUpdatedAt:  playbackUpdatedAt ?? this.playbackUpdatedAt, // BUG-S01 FIX
-      isEnding:           isEnding        ?? this.isEnding,            // BUG-T02 FIX
+      playbackUpdatedAt:  playbackUpdatedAt ?? this.playbackUpdatedAt,
+      isEnding:           isEnding        ?? this.isEnding,
       members:            members         ?? this.members,
       chatMessages:       chatMessages    ?? this.chatMessages,
       pendingHostRequest: clearHostRequest
@@ -279,7 +292,10 @@ class SessionEntity extends Equatable {
           : (pendingHostRequest ?? this.pendingHostRequest),
       agoraChannel:   clearAgoraChannel ? null : (agoraChannel ?? this.agoraChannel),
       callActive:     callActive ?? this.callActive,
-      isVideo:        isVideo ?? this.isVideo,
+      isVideo:        isVideo    ?? this.isVideo,
+      queue:          queue      ?? this.queue,
+      isPublic:       isPublic   ?? this.isPublic,
+      country:        country    ?? this.country,
     );
   }
 
@@ -292,5 +308,6 @@ class SessionEntity extends Equatable {
         updatedAt, members.length, chatMessages.length,
         pendingHostRequest?.status, ownerId,
         agoraChannel, callActive, isEnding, isVideo,
+        queue.length, isPublic, country,
       ];
 }

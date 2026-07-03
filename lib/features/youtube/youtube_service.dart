@@ -61,17 +61,26 @@ class YoutubeService {
   final YoutubeExplode _yt = YoutubeExplode();
 
   static const _kTimeout   = Duration(seconds: 14);
-  static const _kCobaltApi = 'https://api.cobalt.tools/';
+  static const _cobaltInstances = [
+    'https://cobalt-api.kwiatekmiki.com',      // no auth required
+    'https://cobalt.api.timelessnesses.me',    // no auth required
+    'https://cobalt-us.kwiatekmiki.com',       // no auth required
+  ];
+  // ignore: unused_field
+  static const _kCobaltApi = 'https://api.cobalt.tools/'; // kept for compat
 
   // Piped instances — expanded list, tried in order
+  // Piped instances — refreshed 2026-07.
+  // Check https://piped-instances.kavin.rocks for live status.
   static const _pipedInstances = [
-    'https://pipedapi.adminforge.de',     // Germany, usually reliable
-    'https://piped-api.cine.social',
-    'https://pipedapi.kavin.rocks',
-    'https://api.piped.yt',
-    'https://pipedapi.syncpundit.io',
-    'https://api.piped.projectsegfau.lt',
-    'https://piped-api.privacy.com.de',
+    'https://pipedapi.adminforge.de',       // DE — usually reliable
+    'https://watchapi.whatever.social',     // US
+    'https://api.piped.yt',                 // US
+    'https://piped-api.privacy.com.de',     // DE
+    'https://api.piped.projectsegfau.lt',   // EU
+    'https://pipedapi.tokhmi.xyz',          // US
+    'https://piped.bus-hit.me',             // CA — note: some instances use this path
+    'https://piped-api.codepoint.media',    // AU
   ];
 
   // ─────────────────────────────────────────────────────────────
@@ -316,7 +325,7 @@ class YoutubeService {
 
   Future<String?> getAudioStreamUrl(String videoId) async {
     // ── Round 1: Cobalt + all 7 Piped in parallel ──────────────
-    debugPrint('[YouTube] Racing Cobalt + ${_pipedInstances.length} Piped for $videoId...');
+    debugPrint('[YouTube] Racing ${_cobaltInstances.length} Cobalt + InnerTube iOS + ${_pipedInstances.length} Piped for $videoId...');
     final url = await _raceStreamUrl(videoId);
     if (url != null && url.isNotEmpty) {
       debugPrint('[YouTube] ✓ Parallel race winner for $videoId');
@@ -375,13 +384,15 @@ class YoutubeService {
     return null;
   }
 
-  // ── Parallel race: Cobalt + all Piped instances ───────────────
+  // ── Parallel race: Cobalt + InnerTube iOS + all Piped instances ──
+  // FIX v6: Added InnerTube iOS client as an extra parallel source.
   // Fires all requests simultaneously; resolves with the first non-null URL.
-  // Timeout of 10 sec guards against all sources hanging silently.
+  // Timeout of 12 sec (up from 10) to give InnerTube iOS enough time.
   Future<String?> _raceStreamUrl(String videoId) {
     final completer = Completer<String?>();
     final futures = <Future<String?>>[
       _cobaltAudioUrl(videoId),
+      _innerTubeIosStreamUrl(videoId), // FIX v6: new parallel source
       ..._pipedInstances.map((base) => _pipedStreamUrl(base, videoId)),
     ];
 
@@ -401,47 +412,142 @@ class YoutubeService {
     }
 
     return completer.future.timeout(
-      const Duration(seconds: 10),
+      const Duration(seconds: 12), // FIX v6: extended for more sources
       onTimeout: () => null,
     );
   }
 
-  // ── Cobalt API — primary stream strategy ────────────────────────
-  // Cobalt proxies YouTube audio through its servers → no IP restriction.
-  // "tunnel" URLs route via Cobalt CDN (always safe).
-  // "redirect" URLs may be direct googlevideo.com (still IP-locked) but
-  // the outer verify step catches those.
-  Future<String?> _cobaltAudioUrl(String videoId) async {
-    final resp = await http.post(
-      Uri.parse(_kCobaltApi),
-      headers: {
-        'Accept':       'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'url':          'https://www.youtube.com/watch?v=$videoId',
-        'downloadMode': 'audio',
-        'audioFormat':  'best',
-      }),
-    ).timeout(const Duration(seconds: 12));
+  // ── InnerTube iOS client — extra stream fallback ──────────────
+  // The iOS client doesn't require a PO token (unlike ANDROID post-2024).
+  // URLs are still googlevideo.com signed CDN links → may 403 on CGNAT if the
+  // outgoing IP flips between this request and ExoPlayer's media request.
+  // Included here because it's free and fast; Cobalt/Piped HLS are still
+  // preferred for CGNAT-safe proxied delivery.
+  Future<String?> _innerTubeIosStreamUrl(String videoId) async {
+    try {
+      const clientVersion = '19.29.1';
+      const deviceModel   = 'iPhone16,2';
 
-    if (resp.statusCode != 200) {
-      debugPrint('[YouTube] Cobalt returned ${resp.statusCode}');
+      final resp = await http.post(
+        Uri.parse('https://www.youtube.com/youtubei/v1/player?prettyPrint=false'),
+        headers: {
+          'Content-Type':              'application/json',
+          'User-Agent':
+              'com.google.ios.youtube/$clientVersion ($deviceModel; U; CPU iOS 17_5_1 like Mac OS X)',
+          'X-YouTube-Client-Name':    '5',
+          'X-YouTube-Client-Version': clientVersion,
+          'Origin':                   'https://www.youtube.com',
+        },
+        body: jsonEncode({
+          'videoId': videoId,
+          'context': {
+            'client': {
+              'clientName':    'IOS',
+              'clientVersion': clientVersion,
+              'deviceModel':   deviceModel,
+              'hl':            'en',
+              'gl':            'US',
+            },
+          },
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (resp.statusCode != 200) {
+        debugPrint('[YouTube] InnerTube iOS returned ${resp.statusCode}');
+        return null;
+      }
+
+      final data          = jsonDecode(resp.body) as Map<String, dynamic>;
+      final streamingData = data['streamingData'] as Map<String, dynamic>?;
+      if (streamingData == null) {
+        debugPrint('[YouTube] InnerTube iOS: no streamingData');
+        return null;
+      }
+
+      // Prefer audio-only adaptive formats (highest bitrate first)
+      final adaptive     = List<Map>.from((streamingData['adaptiveFormats'] as List?) ?? []);
+      final audioStreams  = adaptive
+          .where((f) => (f['mimeType'] as String? ?? '').startsWith('audio/'))
+          .toList();
+
+      if (audioStreams.isNotEmpty) {
+        audioStreams.sort((a, b) {
+          final ba = (a['bitrate'] as num?)?.toInt() ?? 0;
+          final bb = (b['bitrate'] as num?)?.toInt() ?? 0;
+          return bb.compareTo(ba);
+        });
+        final url = audioStreams.first['url'] as String?;
+        if (url != null && url.isNotEmpty) {
+          debugPrint('[YouTube] InnerTube iOS audio ✓');
+          return url;
+        }
+      }
+
+      // Fallback: muxed format
+      final formats = List<Map>.from((streamingData['formats'] as List?) ?? []);
+      if (formats.isNotEmpty) {
+        final url = formats.last['url'] as String?;
+        if (url != null && url.isNotEmpty) {
+          debugPrint('[YouTube] InnerTube iOS muxed ✓');
+          return url;
+        }
+      }
+
+      debugPrint('[YouTube] InnerTube iOS: no usable URL');
+      return null;
+    } catch (e) {
+      debugPrint('[YouTube] InnerTube iOS error: $e');
       return null;
     }
+  }
 
-    final data   = jsonDecode(resp.body) as Map<String, dynamic>;
-    final status = data['status'] as String?;
-    final url    = data['url']    as String?;
+  // ── Cobalt API — primary stream strategy ────────────────────────
+  // Tries all _cobaltInstances sequentially until one succeeds.
+  //
+  // FIX v6:
+  //  - 'audioFormat: best' → 'audioFormat: mp3'  (some instances reject "best")
+  //  - Added 'stream' to accepted statuses (new in Cobalt 10.x)
+  //  - Tries multiple community instances when official API returns 400/401
+  //  - If you have a Cobalt API key, add header: 'Authorization': 'Api-Key YOUR_KEY'
+  Future<String?> _cobaltAudioUrl(String videoId) async {
+    for (final instance in _cobaltInstances) {
+      try {
+        final resp = await http.post(
+          Uri.parse('$instance/'),
+          headers: {
+            'Accept':       'application/json',
+            'Content-Type': 'application/json',
+            // 'Authorization': 'Api-Key YOUR_KEY',  // uncomment if you have a key
+          },
+          body: jsonEncode({
+            'url':          'https://www.youtube.com/watch?v=$videoId',
+            'downloadMode': 'audio',
+            'audioFormat':  'mp3',   // FIX: 'best' rejected by some instances
+          }),
+        ).timeout(const Duration(seconds: 10));
 
-    if ((status == 'redirect' || status == 'tunnel') &&
-        url != null && url.isNotEmpty) {
-      debugPrint('[YouTube] Cobalt status=$status');
-      return url;
+        if (resp.statusCode != 200) {
+          debugPrint('[YouTube] Cobalt $instance returned ${resp.statusCode}');
+          continue; // try next instance
+        }
+
+        final data   = jsonDecode(resp.body) as Map<String, dynamic>;
+        final status = data['status'] as String?;
+        final url    = data['url']    as String?;
+
+        // FIX: added 'stream' — used by Cobalt 10.x for non-redirected proxied URLs
+        if ((status == 'redirect' || status == 'tunnel' || status == 'stream') &&
+            url != null && url.isNotEmpty) {
+          debugPrint('[YouTube] Cobalt $instance ✓ status=$status');
+          return url;
+        }
+
+        final errorCode = data['error']?['code'] as String?;
+        debugPrint('[YouTube] Cobalt $instance: status=$status error=$errorCode');
+      } catch (e) {
+        debugPrint('[YouTube] Cobalt $instance error: $e');
+      }
     }
-
-    final errorCode = data['error']?['code'] as String?;
-    debugPrint('[YouTube] Cobalt: status=$status error=$errorCode');
     return null;
   }
 
