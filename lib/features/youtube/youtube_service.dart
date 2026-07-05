@@ -60,7 +60,9 @@ class YoutubeTrack {
 class YoutubeService {
   final YoutubeExplode _yt = YoutubeExplode();
 
-  static const _kTimeout   = Duration(seconds: 14);
+  // BUG-Y02 FIX: was 14s — Piped futures outlived the 12s race window by 2s,
+  // leaving orphaned HTTP requests holding completer refs. 10s < 12s race timeout.
+  static const _kTimeout   = Duration(seconds: 10);
   static const _cobaltInstances = [
     'https://cobalt-api.kwiatekmiki.com',      // no auth required
     'https://cobalt.api.timelessnesses.me',    // no auth required
@@ -542,6 +544,20 @@ class YoutubeService {
           return url;
         }
 
+        // BUG-Y04 FIX: Cobalt returns 'picker' for live streams / age-restricted
+        // content when multiple format choices exist. Previously fell through to
+        // null, forcing the race to slower sources. Now extracts first audio URL.
+        if (status == 'picker') {
+          final items = (data['items'] as List?) ?? [];
+          if (items.isNotEmpty) {
+            final pickerUrl = items.first['url'] as String?;
+            if (pickerUrl != null && pickerUrl.isNotEmpty) {
+              debugPrint('[YouTube] Cobalt $instance ✓ status=picker (first item)');
+              return pickerUrl;
+            }
+          }
+        }
+
         final errorCode = data['error']?['code'] as String?;
         debugPrint('[YouTube] Cobalt $instance: status=$status error=$errorCode');
       } catch (e) {
@@ -554,9 +570,19 @@ class YoutubeService {
   // ── URL verification ─────────────────────────────────────────────
   // Quick HEAD request to detect 403/410 IP-lock before ExoPlayer tries it.
   Future<bool> _verifyUrl(String url) async {
+    // ROOT CAUSE FIX: Google Video CDN (googlevideo.com) returns HTTP 405
+    // "Method Not Allowed" for HEAD requests — it only accepts GET with
+    // Range headers. Without this fix, valid stream URLs were incorrectly
+    // marked as broken and discarded, forcing fallback to slower sources.
+    //
+    // Treatment:
+    //   < 400  → URL is reachable and returns content           → valid
+    //   405    → Server exists, URL is valid, HEAD not supported → valid
+    //   4xx/5xx (except 405) → actual error                     → invalid
     try {
       final resp = await http.head(Uri.parse(url))
           .timeout(const Duration(seconds: 5));
+      if (resp.statusCode == 405) return true; // CDN valid, HEAD unsupported
       return resp.statusCode < 400;
     } catch (_) {
       return false;

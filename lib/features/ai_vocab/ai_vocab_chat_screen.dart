@@ -291,7 +291,7 @@ class _AIVocabChatScreenState extends State<AIVocabChatScreen>
             width: 36, height: 36,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [accent, accent.withOpacity(0.6)],
+                colors: [accent, accent.withValues(alpha: 0.6)],
                 begin : Alignment.topLeft,
                 end   : Alignment.bottomRight,
               ),
@@ -322,7 +322,7 @@ class _AIVocabChatScreenState extends State<AIVocabChatScreen>
                   style: TextStyle(
                     fontFamily: 'Poppins',
                     fontSize  : 11,
-                    color     : accent.withOpacity(0.85),
+                    color     : accent.withValues(alpha: 0.85),
                   ),
                 ),
               ],
@@ -371,7 +371,7 @@ class _AIVocabChatScreenState extends State<AIVocabChatScreen>
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: Colors.white.withOpacity(0.07)),
+        child: Container(height: 1, color: Colors.white.withValues(alpha: 0.07)),
       ),
     );
   }
@@ -389,7 +389,7 @@ class _AIVocabChatScreenState extends State<AIVocabChatScreen>
               style: TextStyle(
                 fontFamily : 'Poppins',
                 fontSize   : 12,
-                color      : accent.withOpacity(0.85),
+                color      : accent.withValues(alpha: 0.85),
                 fontWeight : FontWeight.w600,
               ),
             ),
@@ -405,7 +405,7 @@ class _AIVocabChatScreenState extends State<AIVocabChatScreen>
             }).toList(),
           ),
           const SizedBox(height: 8),
-          Container(height: 1, color: Colors.white.withOpacity(0.06)),
+          Container(height: 1, color: Colors.white.withValues(alpha: 0.06)),
         ],
       ),
     );
@@ -435,7 +435,7 @@ class _AIVocabChatScreenState extends State<AIVocabChatScreen>
           Container(
             width: 28, height: 28,
             decoration: BoxDecoration(
-              color: accent.withOpacity(0.2),
+              color: accent.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(Icons.auto_awesome_rounded, size: 14, color: accent),
@@ -451,7 +451,7 @@ class _AIVocabChatScreenState extends State<AIVocabChatScreen>
                 bottomLeft: Radius.circular(18),
                 bottomRight: Radius.circular(18),
               ),
-              border: Border.all(color: accent.withOpacity(0.2)),
+              border: Border.all(color: accent.withValues(alpha: 0.2)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -467,7 +467,7 @@ class _AIVocabChatScreenState extends State<AIVocabChatScreen>
                       width : 6,
                       height: 6 + val * 4,
                       decoration: BoxDecoration(
-                        color : accent.withOpacity(0.5 + val * 0.5),
+                        color : accent.withValues(alpha: 0.5 + val * 0.5),
                         shape : BoxShape.circle,
                       ),
                     );
@@ -479,7 +479,7 @@ class _AIVocabChatScreenState extends State<AIVocabChatScreen>
           const SizedBox(width: 8),
           Text(
             'Soch raha hoon...',
-            style: TextStyle(fontSize: 12, color: accent.withOpacity(0.7)),
+            style: TextStyle(fontSize: 12, color: accent.withValues(alpha: 0.7)),
           ),
         ],
       ),
@@ -497,7 +497,7 @@ class _AIVocabChatScreenState extends State<AIVocabChatScreen>
       ),
       decoration: BoxDecoration(
         color: AppTheme.bgCard,
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.07))),
+        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.07))),
       ),
       child: Row(
         children: [
@@ -506,7 +506,7 @@ class _AIVocabChatScreenState extends State<AIVocabChatScreen>
               decoration: BoxDecoration(
                 color       : AppTheme.bgSurface,
                 borderRadius: BorderRadius.circular(24),
-                border      : Border.all(color: Colors.white.withOpacity(0.08)),
+                border      : Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
               child: TextField(
                 controller      : _ctrl,
@@ -543,7 +543,7 @@ class _AIVocabChatScreenState extends State<AIVocabChatScreen>
                 gradient: _loading
                     ? null
                     : LinearGradient(
-                        colors: [accent, accent.withOpacity(0.7)],
+                        colors: [accent, accent.withValues(alpha: 0.7)],
                         begin : Alignment.topLeft,
                         end   : Alignment.bottomRight,
                       ),
@@ -551,7 +551,7 @@ class _AIVocabChatScreenState extends State<AIVocabChatScreen>
                 shape    : BoxShape.circle,
                 boxShadow: _loading
                     ? null
-                    : [BoxShadow(color: accent.withOpacity(0.35), blurRadius: 10)],
+                    : [BoxShadow(color: accent.withValues(alpha: 0.35), blurRadius: 10)],
               ),
               child: Icon(
                 _loading ? Icons.hourglass_empty_rounded : Icons.send_rounded,
@@ -596,7 +596,7 @@ class _MessageBubble extends StatelessWidget {
               width: 28, height: 28,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                    colors: [accent, accent.withOpacity(0.6)]),
+                    colors: [accent, accent.withValues(alpha: 0.6)]),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.auto_awesome_rounded,
@@ -617,7 +617,7 @@ class _MessageBubble extends StatelessWidget {
                     decoration: BoxDecoration(
                       gradient: isUser
                           ? LinearGradient(
-                              colors: [accent, accent.withOpacity(0.75)],
+                              colors: [accent, accent.withValues(alpha: 0.75)],
                               begin : Alignment.topLeft,
                               end   : Alignment.bottomRight,
                             )
@@ -635,11 +635,11 @@ class _MessageBubble extends StatelessWidget {
                       ),
                       border: isUser
                           ? null
-                          : Border.all(color: accent.withOpacity(0.18), width: 1),
+                          : Border.all(color: accent.withValues(alpha: 0.18), width: 1),
                       boxShadow: [
                         BoxShadow(
                           color    : (isUser ? accent : Colors.black)
-                              .withOpacity(isUser ? 0.25 : 0.3),
+                              .withValues(alpha: isUser ? 0.25 : 0.3),
                           blurRadius: 8,
                           offset   : const Offset(0, 3),
                         ),
@@ -668,14 +668,14 @@ class _MessageBubble extends StatelessWidget {
                                 fontFamily: 'Poppins',
                                 fontSize  : 10,
                                 color     : isUser
-                                    ? Colors.white.withOpacity(0.6)
+                                    ? Colors.white.withValues(alpha: 0.6)
                                     : AppTheme.textSecondary,
                               ),
                             ),
                             if (!isUser && msg.bookmarked) ...[
                               const SizedBox(width: 4),
                               Icon(Icons.bookmark_rounded,
-                                  size: 11, color: accent.withOpacity(0.8)),
+                                  size: 11, color: accent.withValues(alpha: 0.8)),
                             ],
                           ],
                         ),
@@ -696,7 +696,7 @@ class _MessageBubble extends StatelessWidget {
                                 : AppTheme.bgSurface,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: accent.withOpacity(0.4), width: 1),
+                              color: accent.withValues(alpha: 0.4), width: 1),
                           ),
                           child: Icon(
                             msg.bookmarked
@@ -717,7 +717,7 @@ class _MessageBubble extends StatelessWidget {
             Container(
               width: 28, height: 28,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.person_rounded,
@@ -746,9 +746,9 @@ class _QuickChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color       : accent.withOpacity(0.12),
+          color       : accent.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
-          border      : Border.all(color: accent.withOpacity(0.3)),
+          border      : Border.all(color: accent.withValues(alpha: 0.3)),
         ),
         child: Text(
           label,
@@ -756,7 +756,7 @@ class _QuickChip extends StatelessWidget {
             fontFamily : 'Poppins',
             fontSize   : 12,
             fontWeight : FontWeight.w500,
-            color      : accent.withOpacity(0.9),
+            color      : accent.withValues(alpha: 0.9),
           ),
         ),
       ),

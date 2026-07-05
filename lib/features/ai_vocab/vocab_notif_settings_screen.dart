@@ -319,7 +319,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
             width: 34, height: 34,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [accent, accent.withOpacity(0.6)],
+                colors: [accent, accent.withValues(alpha: 0.6)],
               ),
               borderRadius: BorderRadius.circular(10),
             ),
@@ -340,7 +340,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
       ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: Colors.white.withOpacity(0.07)),
+        child: Container(height: 1, color: Colors.white.withValues(alpha: 0.07)),
       ),
     );
   }
@@ -351,9 +351,9 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.12),
+        color: Colors.orange.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.orange.withOpacity(0.4)),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
@@ -388,7 +388,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
           TextButton(
             onPressed: _openSystemNotifSettings,
             style: TextButton.styleFrom(
-              backgroundColor: Colors.orange.withOpacity(0.2),
+              backgroundColor: Colors.orange.withValues(alpha: 0.2),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
@@ -419,11 +419,11 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: enabled
-            ? accent.withOpacity(0.15)
-            : Colors.white.withOpacity(0.04),
+            ? accent.withValues(alpha: 0.15)
+            : Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: enabled ? accent.withOpacity(0.4) : Colors.white12,
+          color: enabled ? accent.withValues(alpha: 0.4) : Colors.white12,
         ),
       ),
       child: Row(
@@ -431,7 +431,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
           Container(
             width: 40, height: 40,
             decoration: BoxDecoration(
-              color: enabled ? accent.withOpacity(0.2) : Colors.white10,
+              color: enabled ? accent.withValues(alpha: 0.2) : Colors.white10,
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -464,7 +464,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                       fontFamily : 'Poppins',
                       fontSize   : 12,
                       fontWeight : FontWeight.w600,
-                      color      : accent.withOpacity(0.9),
+                      color      : accent.withValues(alpha: 0.9),
                     ),
                   )
                 else if (enabled)
@@ -502,7 +502,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
           Container(
             width: 40, height: 40,
             decoration: BoxDecoration(
-              color            : accent.withOpacity(0.12),
+              color            : accent.withValues(alpha: 0.12),
               borderRadius     : BorderRadius.circular(12),
             ),
             child: Icon(Icons.power_settings_new_rounded,
@@ -571,7 +571,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Icon(Icons.arrow_forward_rounded,
-                    color: accent.withOpacity(0.5), size: 20),
+                    color: accent.withValues(alpha: 0.5), size: 20),
               ),
               Expanded(
                 child: _TimeButton(
@@ -602,7 +602,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color        : Colors.red.withOpacity(0.08),
+          color        : Colors.red.withValues(alpha: 0.08),
           borderRadius : BorderRadius.circular(8),
         ),
         child: const Text(
@@ -640,7 +640,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color        : accent.withOpacity(0.08),
+            color        : accent.withValues(alpha: 0.08),
             borderRadius : BorderRadius.circular(8),
           ),
           child: Text(
@@ -649,7 +649,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
             style: TextStyle(
               fontFamily : 'Poppins',
               fontSize   : 11,
-              color      : accent.withOpacity(0.9),
+              color      : accent.withValues(alpha: 0.9),
             ),
           ),
         ),
@@ -659,9 +659,9 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color        : Colors.orange.withOpacity(0.08),
+              color        : Colors.orange.withValues(alpha: 0.08),
               borderRadius : BorderRadius.circular(8),
-              border       : Border.all(color: Colors.orange.withOpacity(0.25)),
+              border       : Border.all(color: Colors.orange.withValues(alpha: 0.25)),
             ),
             child: Row(
               children: [
@@ -726,7 +726,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                   decoration : BoxDecoration(
                     color        : active
                         ? accent
-                        : Colors.white.withOpacity(0.07),
+                        : Colors.white.withValues(alpha: 0.07),
                     borderRadius : BorderRadius.circular(12),
                     border       : Border.all(
                       color: active ? accent : Colors.white12,
@@ -787,7 +787,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                     decoration : BoxDecoration(
                       color        : selected
                           ? accent
-                          : Colors.white.withOpacity(0.06),
+                          : Colors.white.withValues(alpha: 0.06),
                       borderRadius : BorderRadius.circular(12),
                       border       : Border.all(
                         color: selected ? accent : Colors.white12,
@@ -845,7 +845,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                       color      : AppTheme.textSecondary,
                     ),
                     filled        : true,
-                    fillColor     : Colors.white.withOpacity(0.05),
+                    fillColor     : Colors.white.withValues(alpha: 0.05),
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 10),
                     border        : OutlineInputBorder(
@@ -858,7 +858,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                     ),
                     focusedBorder : OutlineInputBorder(
                       borderRadius : BorderRadius.circular(12),
-                      borderSide   : BorderSide(color: accent.withOpacity(0.5)),
+                      borderSide   : BorderSide(color: accent.withValues(alpha: 0.5)),
                     ),
                   ),
                 ),
@@ -903,7 +903,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
               style: TextStyle(
                 fontFamily : 'Poppins',
                 fontSize   : 11,
-                color      : accent.withOpacity(0.8),
+                color      : accent.withValues(alpha: 0.8),
               ),
             ),
           ],
@@ -930,7 +930,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
             style: TextStyle(
               fontFamily : 'Poppins',
               fontSize   : 11,
-              color      : accent.withOpacity(0.7),
+              color      : accent.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 10),
@@ -950,7 +950,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                 color      : AppTheme.textSecondary,
               ),
               filled        : true,
-              fillColor     : Colors.white.withOpacity(0.05),
+              fillColor     : Colors.white.withValues(alpha: 0.05),
               contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14, vertical: 12),
               border        : OutlineInputBorder(
@@ -963,7 +963,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
               ),
               focusedBorder : OutlineInputBorder(
                 borderRadius : BorderRadius.circular(12),
-                borderSide   : BorderSide(color: accent.withOpacity(0.5)),
+                borderSide   : BorderSide(color: accent.withValues(alpha: 0.5)),
               ),
               suffixIcon: IconButton(
                 onPressed: () =>
@@ -996,7 +996,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
           Container(
             width: 48, height: 48,
             decoration: BoxDecoration(
-              color        : accent.withOpacity(0.12),
+              color        : accent.withValues(alpha: 0.12),
               shape        : BoxShape.circle,
             ),
             child: Center(
@@ -1040,7 +1040,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
           ),
           if (size > 0)
             Icon(Icons.check_circle_rounded,
-                color: Colors.greenAccent.withOpacity(0.8), size: 22),
+                color: Colors.greenAccent.withValues(alpha: 0.8), size: 22),
         ],
       ),
     );
@@ -1076,7 +1076,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
           ),
           style: OutlinedButton.styleFrom(
             foregroundColor : accent,
-            side            : BorderSide(color: accent.withOpacity(0.4)),
+            side            : BorderSide(color: accent.withValues(alpha: 0.4)),
             padding         : const EdgeInsets.symmetric(
                 vertical: 12, horizontal: 20),
             shape           : RoundedRectangleBorder(
@@ -1107,13 +1107,13 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _statusIsError
-            ? Colors.redAccent.withOpacity(0.12)
-            : Colors.greenAccent.withOpacity(0.1),
+            ? Colors.redAccent.withValues(alpha: 0.12)
+            : Colors.greenAccent.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: _statusIsError
-              ? Colors.redAccent.withOpacity(0.3)
-              : Colors.greenAccent.withOpacity(0.3),
+              ? Colors.redAccent.withValues(alpha: 0.3)
+              : Colors.greenAccent.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -1165,7 +1165,7 @@ class _Card extends StatelessWidget {
       decoration : BoxDecoration(
         color        : AppTheme.bgCard,
         borderRadius : BorderRadius.circular(18),
-        border       : Border.all(color: Colors.white.withOpacity(0.07)),
+        border       : Border.all(color: Colors.white.withValues(alpha: 0.07)),
       ),
       child: child,
     );
@@ -1231,9 +1231,9 @@ class _TimeButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
         decoration: BoxDecoration(
-          color        : accent.withOpacity(0.1),
+          color        : accent.withValues(alpha: 0.1),
           borderRadius : BorderRadius.circular(14),
-          border       : Border.all(color: accent.withOpacity(0.25)),
+          border       : Border.all(color: accent.withValues(alpha: 0.25)),
         ),
         child: Column(
           children: [
@@ -1242,7 +1242,7 @@ class _TimeButton extends StatelessWidget {
               style: TextStyle(
                 fontFamily : 'Poppins',
                 fontSize   : 11,
-                color      : accent.withOpacity(0.7),
+                color      : accent.withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(height: 4),
@@ -1296,20 +1296,20 @@ class _ActionButton extends StatelessWidget {
             gradient: secondary
                 ? null
                 : LinearGradient(
-                    colors: [accent, accent.withOpacity(0.7)],
+                    colors: [accent, accent.withValues(alpha: 0.7)],
                     begin : Alignment.topLeft,
                     end   : Alignment.bottomRight,
                   ),
-            color: secondary ? accent.withOpacity(0.12) : null,
+            color: secondary ? accent.withValues(alpha: 0.12) : null,
             borderRadius: BorderRadius.circular(16),
             border: secondary
-                ? Border.all(color: accent.withOpacity(0.3))
+                ? Border.all(color: accent.withValues(alpha: 0.3))
                 : null,
             boxShadow: secondary
                 ? null
                 : [
                     BoxShadow(
-                      color    : accent.withOpacity(0.35),
+                      color    : accent.withValues(alpha: 0.35),
                       blurRadius: 12,
                       offset   : const Offset(0, 4),
                     )
@@ -1350,7 +1350,7 @@ class _ActionButton extends StatelessWidget {
                         fontFamily : 'Poppins',
                         fontSize   : 11,
                         color      : secondary
-                            ? accent.withOpacity(0.7)
+                            ? accent.withValues(alpha: 0.7)
                             : Colors.white70,
                       ),
                     ),
@@ -1359,7 +1359,7 @@ class _ActionButton extends StatelessWidget {
               ),
               Icon(
                 Icons.arrow_forward_rounded,
-                color: secondary ? accent.withOpacity(0.5) : Colors.white60,
+                color: secondary ? accent.withValues(alpha: 0.5) : Colors.white60,
                 size : 18,
               ),
             ],

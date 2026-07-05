@@ -170,11 +170,11 @@ class _PremiumNavBar extends StatelessWidget {
       // 70dp for our buttons + system nav bar height below them
       height: 70 + bottomPadding,
       decoration: BoxDecoration(
-        color: hasBg ? AppTheme.bgCard.withOpacity(0.75) : AppTheme.bgCard,
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.06), width: 1)),
+        color: hasBg ? AppTheme.bgCard.withValues(alpha: 0.75) : AppTheme.bgCard,
+        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.06), width: 1)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha: 0.4),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -201,7 +201,7 @@ class _PremiumNavBar extends StatelessWidget {
                     duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
-                      color: isSelected ? accent.withOpacity(0.15) : Colors.transparent,
+                      color: isSelected ? accent.withValues(alpha: 0.15) : Colors.transparent,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -267,13 +267,13 @@ class _HomeTab extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    const Color(0xFF10B981).withOpacity(0.20),
-                    const Color(0xFF10B981).withOpacity(0.08),
+                    const Color(0xFF10B981).withValues(alpha: 0.20),
+                    const Color(0xFF10B981).withValues(alpha: 0.08),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: const Color(0xFF10B981).withOpacity(0.40),
+                  color: const Color(0xFF10B981).withValues(alpha: 0.40),
                 ),
               ),
               child: InkWell(
@@ -306,13 +306,13 @@ class _HomeTab extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                    Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
                 ),
               ),
               child: InkWell(
@@ -347,7 +347,7 @@ class _HomeTab extends StatelessWidget {
             Container(
               margin: const EdgeInsets.only(right: 12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
               child: IconButton(
@@ -405,7 +405,7 @@ class _HomeTab extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.05),
+                              color: Colors.white.withValues(alpha: 0.05),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(Icons.music_off_rounded, size: 56, color: Colors.white24),
@@ -454,19 +454,19 @@ class _TogetherHomeCard extends StatelessWidget {
                   end: Alignment.bottomRight,
                   colors: togetherState.isInSession
                       ? [
-                          const Color(0xFF22C55E).withOpacity(0.20),
-                          accent.withOpacity(0.10),
+                          const Color(0xFF22C55E).withValues(alpha: 0.20),
+                          accent.withValues(alpha: 0.10),
                         ]
                       : [
-                          accent.withOpacity(0.15),
-                          AppTheme.accentCyan.withOpacity(0.08),
+                          accent.withValues(alpha: 0.15),
+                          AppTheme.accentCyan.withValues(alpha: 0.08),
                         ],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: togetherState.isInSession
-                      ? const Color(0xFF22C55E).withOpacity(0.40)
-                      : accent.withOpacity(0.25),
+                      ? const Color(0xFF22C55E).withValues(alpha: 0.40)
+                      : accent.withValues(alpha: 0.25),
                   width: 1,
                 ),
               ),
@@ -478,8 +478,8 @@ class _TogetherHomeCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(colors: [
-                        accent.withOpacity(0.4),
-                        AppTheme.accentCyan.withOpacity(0.25),
+                        accent.withValues(alpha: 0.4),
+                        AppTheme.accentCyan.withValues(alpha: 0.25),
                       ]),
                     ),
                     child: const Icon(
@@ -518,7 +518,7 @@ class _TogetherHomeCard extends StatelessWidget {
                   ),
                   Icon(
                     Icons.chevron_right_rounded,
-                    color: accent.withOpacity(0.6),
+                    color: accent.withValues(alpha: 0.6),
                   ),
                 ],
               ),
@@ -558,7 +558,7 @@ class _SectionHeader extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.07),
+                  color: Colors.white.withValues(alpha: 0.07),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.refresh_rounded, size: 16, color: AppTheme.textSecondary),
@@ -616,17 +616,17 @@ class _PremiumHorizontalList extends StatelessWidget {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          accent.withOpacity(0.2),
+                          accent.withValues(alpha: 0.2),
                           AppTheme.bgSurface,
                         ],
                       ),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.07),
+                        color: Colors.white.withValues(alpha: 0.07),
                         width: 1,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: accent.withOpacity(0.1),
+                          color: accent.withValues(alpha: 0.1),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -646,7 +646,7 @@ class _PremiumHorizontalList extends StatelessWidget {
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: accent.withOpacity(0.85),
+                              color: accent.withValues(alpha: 0.85),
                             ),
                             child: const Icon(Icons.play_arrow_rounded, size: 16, color: Colors.white),
                           ),
@@ -834,10 +834,10 @@ class _AlbumCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color:         baseColor.withOpacity(cardOpacity),
+          color:         baseColor.withValues(alpha: cardOpacity),
           borderRadius:  BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withOpacity(cardOpacity * 0.07),
+            color: Colors.white.withValues(alpha: cardOpacity * 0.07),
             width: 1,
           ),
         ),
@@ -849,11 +849,11 @@ class _AlbumCard extends StatelessWidget {
               decoration: BoxDecoration(
                 shape:    BoxShape.circle,
                 gradient: RadialGradient(colors: [
-                  accent.withOpacity(0.25),
+                  accent.withValues(alpha: 0.25),
                   AppTheme.bgSurface,
                 ]),
               ),
-              child: Icon(Icons.album_rounded, size: 38, color: accent.withOpacity(0.6)),
+              child: Icon(Icons.album_rounded, size: 38, color: accent.withValues(alpha: 0.6)),
             ),
             const SizedBox(height: 10),
             Padding(
@@ -939,9 +939,9 @@ class _ArtistTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color:        baseColor.withOpacity(cardOpacity),
+        color:        baseColor.withValues(alpha: cardOpacity),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(cardOpacity * 0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: cardOpacity * 0.06)),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -950,10 +950,10 @@ class _ArtistTile extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: LinearGradient(
-              colors: [accent.withOpacity(0.3), AppTheme.bgSurface],
+              colors: [accent.withValues(alpha: 0.3), AppTheme.bgSurface],
             ),
           ),
-          child: Icon(Icons.person_rounded, color: accent.withOpacity(0.8), size: 22),
+          child: Icon(Icons.person_rounded, color: accent.withValues(alpha: 0.8), size: 22),
         ),
         title: Text(
           name,
@@ -965,7 +965,7 @@ class _ArtistTile extends StatelessWidget {
         ),
         trailing: Icon(
           Icons.chevron_right_rounded,
-          color: AppTheme.textSecondary.withOpacity(0.5),
+          color: AppTheme.textSecondary.withValues(alpha: 0.5),
         ),
         onTap: () => context.push('${AppRouter.artist}/${Uri.encodeComponent(name)}'),
       ),
@@ -997,7 +997,7 @@ class _PlaylistsTab extends StatelessWidget {
                 Container(
                   margin: const EdgeInsets.only(right: 12),
                   decoration: BoxDecoration(
-                    color: accent.withOpacity(0.15),
+                    color: accent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: IconButton(
@@ -1016,10 +1016,10 @@ class _PlaylistsTab extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
+                          color: Colors.white.withValues(alpha: 0.05),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.queue_music_rounded, size: 48, color: accent.withOpacity(0.4)),
+                        child: Icon(Icons.queue_music_rounded, size: 48, color: accent.withValues(alpha: 0.4)),
                       ),
                       const SizedBox(height: 16),
                       const Text('No playlists yet',
@@ -1110,9 +1110,9 @@ class _PlaylistTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color:        baseColor.withOpacity(cardOpacity),
+        color:        baseColor.withValues(alpha: cardOpacity),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(cardOpacity * 0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: cardOpacity * 0.06)),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -1121,10 +1121,10 @@ class _PlaylistTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             gradient: LinearGradient(
-              colors: [accent.withOpacity(0.3), AppTheme.bgSurface],
+              colors: [accent.withValues(alpha: 0.3), AppTheme.bgSurface],
             ),
           ),
-          child: Icon(Icons.queue_music_rounded, color: accent.withOpacity(0.8)),
+          child: Icon(Icons.queue_music_rounded, color: accent.withValues(alpha: 0.8)),
         ),
         title: Text(
           playlist.name,

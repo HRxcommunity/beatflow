@@ -24,10 +24,10 @@ class SessionModel {
   final Map<String, dynamic>? pendingHostRequest;
   final String? agoraChannel;
   final bool callActive;
-  final bool isVideo;
-  final List<Map<String, dynamic>> queue; // TASK-5: host queue snapshot
-  final bool isPublic;
-  final String country;
+  final bool isVideo; // true when content is video (local MP4 or YouTube video)
+  // ── Social fields ──────────────────────────────────────────
+  final bool isPublic;       // publicly visible in Social Hub
+  final String roomCategory; // 'general'|'pop'|'hiphop'|'lofi'|'rock'|'edm'
 
   SessionModel({
     required this.sessionId,
@@ -49,11 +49,10 @@ class SessionModel {
     required this.chatMessages,
     this.pendingHostRequest,
     this.agoraChannel,
-    this.callActive = false,
-    this.isVideo = false,
-    this.queue = const [],
-    this.isPublic = false,
-    this.country  = '',
+    this.callActive   = false,
+    this.isVideo      = false,
+    this.isPublic     = false,
+    this.roomCategory = 'general',
   });
 
   factory SessionModel.fromFirestore(DocumentSnapshot doc) {
@@ -72,7 +71,9 @@ class SessionModel {
       positionMs:        d['positionMs']     as int?    ?? 0,
       isPlaying:         d['isPlaying']      as bool?   ?? false,
       updatedAt:         d['updatedAt']      as Timestamp? ?? Timestamp.now(),
+      // BUG-S01 FIX: parse separate playback timestamp; null = fall back to updatedAt
       playbackUpdatedAt: d['playbackUpdatedAt'] as Timestamp?,
+      // BUG-T02 FIX: parse graceful-end flag
       isEnding:          d['isEnding']       as bool?   ?? false,
       members:           (d['members'] as List<dynamic>?)
               ?.map((e) => Map<String, dynamic>.from(e as Map))
@@ -87,21 +88,9 @@ class SessionModel {
           : null,
       agoraChannel: d['agoraChannel'] as String?,
       callActive:   d['callActive']   as bool? ?? false,
-      isVideo:   d['isVideo']   as bool?   ?? false,
-      isPublic:  d['isPublic']  as bool?   ?? false,
-      country:   d['country']   as String? ?? '',
-      // TASK-5: parse queue; guard against malformed entries
-      queue: (d['queue'] as List<dynamic>?)
-              ?.map((e) {
-                try {
-                  return Map<String, dynamic>.from(e as Map);
-                } catch (_) {
-                  return <String, dynamic>{};
-                }
-              })
-              .where((m) => m.isNotEmpty)
-              .toList() ??
-          [],
+      isVideo:      d['isVideo']      as bool?   ?? false,
+      isPublic:     d['isPublic']     as bool?   ?? false,
+      roomCategory: d['roomCategory'] as String? ?? 'general',
     );
   }
 
@@ -126,10 +115,9 @@ class SessionModel {
           'pendingHostRequest': pendingHostRequest,
         if (agoraChannel != null) 'agoraChannel': agoraChannel,
         'callActive': callActive,
-        'isVideo':    isVideo,
-        if (queue.isNotEmpty) 'queue': queue,
-        'isPublic': isPublic,
-        if (country.isNotEmpty) 'country': country,
+        'isVideo':      isVideo,
+        'isPublic':     isPublic,
+        'roomCategory': roomCategory,
       };
 
   SessionEntity toEntity() => SessionEntity(
@@ -146,8 +134,8 @@ class SessionModel {
         positionMs:        positionMs,
         isPlaying:         isPlaying,
         updatedAt:         updatedAt.toDate(),
-        playbackUpdatedAt: playbackUpdatedAt?.toDate(),
-        isEnding:          isEnding,
+        playbackUpdatedAt: playbackUpdatedAt?.toDate(), // BUG-S01 FIX
+        isEnding:          isEnding,                    // BUG-T02 FIX
         members:           members.map(SessionMember.fromMap).toList(),
         chatMessages:      chatMessages.map(SessionChatMessage.fromMap).toList(),
         pendingHostRequest: pendingHostRequest != null
@@ -156,8 +144,7 @@ class SessionModel {
         agoraChannel: agoraChannel,
         callActive:   callActive,
         isVideo:      isVideo,
-        queue:        queue,
         isPublic:     isPublic,
-        country:      country,
+        roomCategory: roomCategory,
       );
 }

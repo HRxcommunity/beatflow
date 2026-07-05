@@ -46,12 +46,12 @@ class SongTile extends StatelessWidget {
       builder: (context, settings) {
         final baseColor = _cardBaseColor(context, settings);
         final cardColor = isPlaying
-            ? accent.withOpacity(0.15)
-            : baseColor.withOpacity(settings.songCardOpacity);
+            ? accent.withValues(alpha: 0.15)
+            : baseColor.withValues(alpha: settings.songCardOpacity);
 
         final borderColor = isPlaying
-            ? accent.withOpacity(0.30)
-            : Colors.white.withOpacity(settings.songCardOpacity * 0.08);
+            ? accent.withValues(alpha: 0.30)
+            : Colors.white.withValues(alpha: settings.songCardOpacity * 0.08);
 
         return GestureDetector(
           onTap: onTap,
@@ -88,7 +88,7 @@ class SongTile extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.75),
+                            color: Colors.black.withValues(alpha: 0.75),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Icon(Icons.videocam_rounded,
@@ -134,7 +134,7 @@ class SongTile extends StatelessWidget {
                 const SizedBox(width: 4),
                 trailing ??
                     Icon(Icons.more_vert_rounded,
-                        color: AppTheme.textSecondary.withOpacity(0.5), size: 18),
+                        color: AppTheme.textSecondary.withValues(alpha: 0.5), size: 18),
               ],
             ),
           ),

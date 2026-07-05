@@ -199,13 +199,11 @@ class SessionEntity extends Equatable {
   // ── Video content ─────────────────────────────────────────────
   // true when shared content is a video file (local MP4 or YouTube video mode)
   final bool isVideo;
-  // TASK-5: Host's minimal queue snapshot — displayed as "Up Next" for guests.
-  // Contains only {idx, id, title, artist, durationMs, isVideo, isCurrent}.
-  // No local file paths — display-only metadata.
-  final List<Map<String, dynamic>> queue;
-  // ── Social / Public rooms ────────────────────────────────────
-  final bool isPublic;    // visible in social public rooms feed
-  final String country;   // ISO-2 country code e.g. 'IN', 'US'
+  // ── Social / Public Room ───────────────────────────────────────
+  // true = room is publicly visible in Social Hub discovery
+  final bool isPublic;
+  // Room genre category: 'general' | 'pop' | 'hiphop' | 'lofi' | 'rock' | 'edm'
+  final String roomCategory;
 
   const SessionEntity({
     required this.sessionId,
@@ -228,13 +226,18 @@ class SessionEntity extends Equatable {
     this.pendingHostRequest,
     this.agoraChannel,
     this.callActive = false,
-    this.isVideo = false,
-    this.queue = const [],  // TASK-5
-    this.isPublic = false,
-    this.country  = '',
+    this.isVideo      = false,
+    this.isPublic     = false,
+    this.roomCategory = 'general',
   });
 
-  bool get hasStreamUrl => streamUrl.isNotEmpty && streamUrl.startsWith('http');
+  // BUG-Y05 FIX: was `startsWith('http')` which returns false for YouTube video
+  // sync entries stored as 'yt:<videoId>'. The sync listener has a guard that
+  // returns early for these, but fixing the getter makes intent explicit.
+  // Now correctly reports true for both http(s):// CDN URLs and yt: prefixes.
+  bool get hasStreamUrl =>
+      streamUrl.isNotEmpty &&
+      (streamUrl.startsWith('http') || streamUrl.startsWith('yt:'));
 
   /// BUG-S01 FIX: use playbackUpdatedAt if available, otherwise fall back to
   /// updatedAt. This ensures guest joins (which update updatedAt) don't corrupt
@@ -264,10 +267,9 @@ class SessionEntity extends Equatable {
     String? agoraChannel,
     bool? callActive,
     bool clearAgoraChannel = false,
-    bool? isVideo,
-    List<Map<String, dynamic>>? queue, // TASK-5
-    bool? isPublic,
-    String? country,
+    bool?   isVideo,
+    bool?   isPublic,
+    String? roomCategory,
   }) {
     return SessionEntity(
       sessionId:          sessionId       ?? this.sessionId,
@@ -283,8 +285,8 @@ class SessionEntity extends Equatable {
       positionMs:         positionMs      ?? this.positionMs,
       isPlaying:          isPlaying       ?? this.isPlaying,
       updatedAt:          updatedAt       ?? this.updatedAt,
-      playbackUpdatedAt:  playbackUpdatedAt ?? this.playbackUpdatedAt,
-      isEnding:           isEnding        ?? this.isEnding,
+      playbackUpdatedAt:  playbackUpdatedAt ?? this.playbackUpdatedAt, // BUG-S01 FIX
+      isEnding:           isEnding        ?? this.isEnding,            // BUG-T02 FIX
       members:            members         ?? this.members,
       chatMessages:       chatMessages    ?? this.chatMessages,
       pendingHostRequest: clearHostRequest
@@ -292,10 +294,9 @@ class SessionEntity extends Equatable {
           : (pendingHostRequest ?? this.pendingHostRequest),
       agoraChannel:   clearAgoraChannel ? null : (agoraChannel ?? this.agoraChannel),
       callActive:     callActive ?? this.callActive,
-      isVideo:        isVideo    ?? this.isVideo,
-      queue:          queue      ?? this.queue,
-      isPublic:       isPublic   ?? this.isPublic,
-      country:        country    ?? this.country,
+      isVideo:      isVideo      ?? this.isVideo,
+      isPublic:     isPublic     ?? this.isPublic,
+      roomCategory: roomCategory ?? this.roomCategory,
     );
   }
 
@@ -307,7 +308,6 @@ class SessionEntity extends Equatable {
         sessionId, songId, streamUrl, positionMs, isPlaying,
         updatedAt, members.length, chatMessages.length,
         pendingHostRequest?.status, ownerId,
-        agoraChannel, callActive, isEnding, isVideo,
-        queue.length, isPublic, country,
+        agoraChannel, callActive, isEnding, isVideo, isPublic, roomCategory,
       ];
 }

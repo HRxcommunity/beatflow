@@ -88,6 +88,12 @@ class _PlayerStateUpdated extends PlayerEvent {
   const _PlayerStateUpdated(this.state);
 }
 
+// BUG-P01 FIX: synthetic event fired when the audio handler's mediaItem
+// changes outside of a PlayerPlay event (e.g. YouTube track via Together).
+class _PlayerMediaItemChanged extends PlayerEvent {
+  const _PlayerMediaItemChanged();
+}
+
 // ─── BLoC ─────────────────────────────────────────────────────
 
 class PlayerBloc extends Bloc<PlayerEvent, PlayerStateEntity> {
@@ -117,6 +123,8 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerStateEntity> {
     on<PlayerReorderQueue>(_onReorderQueue);
     on<PlayerRemoveFromQueue>(_onRemoveFromQueue);
     on<_PlayerStateUpdated>((e, emit) => emit(e.state));
+    // BUG-P01 FIX: keep queue/currentSong in sync when YouTube plays
+    on<_PlayerMediaItemChanged>((e, emit) => _syncMediaItem(emit));
 
     _listenToPlayer();
   }
@@ -128,6 +136,10 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerStateEntity> {
     _subs.add(p.durationStream.listen((_) => _pushState()));
     _subs.add(p.currentIndexStream.listen((_) => _pushState()));
     _subs.add(p.processingStateStream.listen((_) => _pushState()));
+    // BUG-P01 FIX: react to audioHandler mediaItem changes so the mini
+    // player and NowPlaying screen show the YouTube track title/artist
+    // instead of stale local library info after Together YouTube playback.
+    _subs.add(_handler.mediaItem.stream.listen((_) => add(const _PlayerMediaItemChanged())));
   }
 
   void _pushState() {
@@ -143,6 +155,46 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerStateEntity> {
       isLoading: p.processingState == ProcessingState.loading ||
           p.processingState == ProcessingState.buffering,
     )));
+  }
+
+  // BUG-P01 FIX: sync PlayerBloc currentSong from handler's mediaItem when
+  // the local queue doesn't have a matching entry (YouTube / Together mode).
+  // BUG-HIGH-01 FIX: also override when audio source is a single YouTube track
+  // (not a ConcatenatingAudioSource) even if idx < queue.length, because the
+  // host's local queue is still loaded while a YouTube Together track plays.
+  void _syncMediaItem(Emitter<PlayerStateEntity> emit) {
+    final mi = _handler.mediaItem.value;
+    if (mi == null) return;
+    final p   = _handler.player;
+    final idx = p.currentIndex ?? 0;
+
+    // Detect whether the current audio source is a single YouTube item
+    // (not the ConcatenatingAudioSource local library queue).
+    final src = p.audioSource;
+    final isSingleYouTubeSource = src != null && src is! ConcatenatingAudioSource;
+
+    // Local queue covers the index AND we're not in YouTube-single mode → skip
+    if (idx < state.queue.length && !isSingleYouTubeSource) return;
+
+    // Build a synthetic SongEntity so the mini-player can display the
+    // YouTube track info without a PlayerPlay event being dispatched.
+    final ytSong = SongEntity(
+      id:          0, // synthetic — not a local library ID
+      title:       mi.title,
+      artist:      mi.artist ?? '',
+      album:       mi.album  ?? '',
+      albumArtist: mi.artist ?? '',
+      duration:    mi.duration?.inMilliseconds ?? 0,
+      data:        mi.id, // stream URL
+    );
+    emit(state.copyWith(
+      currentSong: ytSong,
+      isPlaying:   p.playing,
+      position:    p.position,
+      duration:    p.duration ?? Duration.zero,
+      isLoading:   p.processingState == ProcessingState.loading ||
+                   p.processingState == ProcessingState.buffering,
+    ));
   }
 
   Future<void> _onPlay(PlayerPlay e, Emitter<PlayerStateEntity> emit) async {

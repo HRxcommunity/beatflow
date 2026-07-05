@@ -52,6 +52,23 @@
 -dontwarn androidx.window.sidecar.**
 -dontwarn androidx.window.**
 
+# ─── WebView / webview_flutter ─────────────────────────────────────────────
+# Without these rules, R8 strips the @JavascriptInterface annotations and the
+# JS-to-Java bridge that backs addJavaScriptChannel() → JS postMessage calls
+# silently fail in release builds (works in debug because minification is off).
+#
+# Also protects the Flutter platform-view MethodChannel glue used by
+# webview_flutter_android to route setMediaPlaybackRequiresUserGesture() etc.
+-keepattributes JavascriptInterface
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+-keep class androidx.webkit.** { *; }
+-keep class android.webkit.** { *; }
+# webview_flutter_android plugin classes
+-keep class io.flutter.plugins.webviewflutter.** { *; }
+-dontwarn io.flutter.plugins.webviewflutter.**
+
 # ─── Common transitive warnings ────────────────────────────────────────────
 -dontwarn javax.annotation.**
 -dontwarn org.conscrypt.**

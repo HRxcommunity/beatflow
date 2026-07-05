@@ -74,7 +74,7 @@ class SettingsScreen extends StatelessWidget {
                             width: 3,
                           ),
                           boxShadow: selected
-                              ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 8)]
+                              ? [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 8)]
                               : null,
                         ),
                         child: selected
@@ -196,7 +196,7 @@ class _BackgroundThemeSection extends StatelessWidget {
                       ),
                     ),
                   if (hasImage)
-                    Container(color: Colors.black.withOpacity(state.backgroundDimOpacity)),
+                    Container(color: Colors.black.withValues(alpha: state.backgroundDimOpacity)),
                   Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -232,7 +232,7 @@ class _BackgroundThemeSection extends StatelessWidget {
                   label: const Text('From Gallery'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: accent,
-                    side: BorderSide(color: accent.withOpacity(0.5)),
+                    side: BorderSide(color: accent.withValues(alpha: 0.5)),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
                   ),
@@ -360,7 +360,7 @@ class _SongCardStyleSection extends StatelessWidget {
                           width: selected ? 2.5 : 1,
                         ),
                         boxShadow: selected
-                            ? [BoxShadow(color: accent.withOpacity(0.4), blurRadius: 8)]
+                            ? [BoxShadow(color: accent.withValues(alpha: 0.4), blurRadius: 8)]
                             : null,
                       ),
                       child: selected
@@ -447,10 +447,10 @@ class _SongCardPreview extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: baseColor.withOpacity(state.songCardOpacity),
+        color: baseColor.withValues(alpha: state.songCardOpacity),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.white.withOpacity(state.songCardOpacity * 0.08),
+          color: Colors.white.withValues(alpha: state.songCardOpacity * 0.08),
         ),
       ),
       child: Row(
@@ -483,7 +483,7 @@ class _SongCardPreview extends StatelessWidget {
               style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
           const SizedBox(width: 4),
           Icon(Icons.more_vert_rounded,
-              color: AppTheme.textSecondary.withOpacity(0.5), size: 18),
+              color: AppTheme.textSecondary.withValues(alpha: 0.5), size: 18),
         ],
       ),
     );
@@ -578,14 +578,14 @@ class _TogetherBgSection extends StatelessWidget {
                       child: Center(
                         child: Icon(
                           Icons.favorite_rounded,
-                          color: Colors.pinkAccent.withOpacity(0.3),
+                          color: Colors.pinkAccent.withValues(alpha: 0.3),
                           size: 48,
                         ),
                       ),
                     ),
                   if (hasImage)
                     Container(
-                        color: Colors.black.withOpacity(state.togetherBgDimOpacity)),
+                        color: Colors.black.withValues(alpha: state.togetherBgDimOpacity)),
                   Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -623,7 +623,7 @@ class _TogetherBgSection extends StatelessWidget {
                   label: const Text('From Gallery'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: accent,
-                    side: BorderSide(color: accent.withOpacity(0.5)),
+                    side: BorderSide(color: accent.withValues(alpha: 0.5)),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
                   ),
@@ -712,7 +712,7 @@ class _VersionTile extends StatelessWidget {
           trailing: Text(
             'v$version ($build)',
             style: TextStyle(
-              color      : Theme.of(context).colorScheme.primary.withOpacity(0.8),
+              color      : Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
               fontFamily : 'Poppins',
               fontSize   : 13,
               fontWeight : FontWeight.w600,
@@ -1043,7 +1043,7 @@ class _ModePill extends StatelessWidget {
             const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
         decoration: BoxDecoration(
           color:
-              selected ? accent.withOpacity(0.18) : Colors.transparent,
+              selected ? accent.withValues(alpha: 0.18) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected ? accent : Colors.white24,

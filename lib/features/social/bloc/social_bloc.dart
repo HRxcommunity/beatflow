@@ -86,7 +86,7 @@ class SocialState extends Equatable {
   final List<SocialUser>    friends;
   final List<SocialActivity> activityFeed;
   final List<SocialUser>    searchResults;
-  final Set<String>         myFollowing;
+  final Set<String>         myFollowing; // UIDs I follow
   final bool    isLoading;
   final bool    isInitialized;
   final bool    searchLoading;
@@ -110,7 +110,7 @@ class SocialState extends Equatable {
 
   bool isFollowing(String uid) => myFollowing.contains(uid);
 
-  /// Trending rooms = public rooms sorted by member count desc
+  // Trending rooms = public rooms sorted by member count desc
   List<SessionEntity> get trendingRooms {
     final sorted = [...publicRooms];
     sorted.sort((a, b) => b.memberCount.compareTo(a.memberCount));
@@ -185,7 +185,7 @@ class SocialBloc extends Bloc<SocialEvent, SocialState> {
 
   // ── Initialize ────────────────────────────────────────────────
   Future<void> _onInitialize(SocialInitialize event, Emitter<SocialState> emit) async {
-    if (state.isInitialized && state.myUid == event.uid) return;
+    if (state.isInitialized && state.myUid == event.uid) return; // already done
 
     emit(state.copyWith(
       isLoading:     true,
@@ -197,16 +197,19 @@ class SocialBloc extends Bloc<SocialEvent, SocialState> {
       final followingUids = await _social.getFollowingUids(event.uid);
       emit(state.copyWith(myFollowing: followingUids, isLoading: false, isInitialized: true));
 
+      // Subscribe to public rooms
       _roomsSub?.cancel();
       _roomsSub = _sessions.watchPublicRooms().listen((rooms) {
         if (!isClosed) add(_PublicRoomsUpdated(rooms));
       });
 
+      // Subscribe to friends list
       _friendsSub?.cancel();
       _friendsSub = _social.watchFollowing(event.uid).listen((friends) {
         if (!isClosed) add(_FriendsUpdated(friends));
       });
 
+      // Subscribe to activity feed
       _activitySub?.cancel();
       _activitySub = _social.watchFriendActivity(event.uid).listen((activity) {
         if (!isClosed) add(_ActivityUpdated(activity));

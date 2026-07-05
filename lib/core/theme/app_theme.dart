@@ -36,7 +36,7 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: bgCard,
-        indicatorColor: accent.withOpacity(0.18),
+        indicatorColor: accent.withValues(alpha: 0.18),
         labelTextStyle: WidgetStateProperty.all(
           const TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w500),
         ),
@@ -49,7 +49,7 @@ class AppTheme {
         thumbColor: Colors.white,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
         inactiveTrackColor: Colors.white12,
-        overlayColor: accent.withOpacity(0.15),
+        overlayColor: accent.withValues(alpha: 0.15),
         trackHeight: 3,
       ),
       switchTheme: SwitchThemeData(
@@ -58,7 +58,7 @@ class AppTheme {
         ),
         trackColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected)
-              ? accent.withOpacity(0.4)
+              ? accent.withValues(alpha: 0.4)
               : Colors.white12,
         ),
       ),

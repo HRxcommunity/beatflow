@@ -462,8 +462,8 @@ class _StudyAiScreenState extends State<StudyAiScreen>
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               gradient: LinearGradient(colors: [
-                const Color(0xFF10B981).withOpacity(0.3),
-                accent.withOpacity(0.2),
+                const Color(0xFF10B981).withValues(alpha: 0.3),
+                accent.withValues(alpha: 0.2),
               ]),
               borderRadius: BorderRadius.circular(10),
             ),
@@ -502,10 +502,10 @@ class _StudyAiScreenState extends State<StudyAiScreen>
             margin: const EdgeInsets.only(top: 12, bottom: 12),
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.15),
+              color: Colors.amber.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(20),
               border:
-                  Border.all(color: Colors.amber.withOpacity(0.3)),
+                  Border.all(color: Colors.amber.withValues(alpha: 0.3)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -565,7 +565,7 @@ class _StudyAiScreenState extends State<StudyAiScreen>
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(colors: [
-                const Color(0xFF10B981).withOpacity(0.18),
+                const Color(0xFF10B981).withValues(alpha: 0.18),
                 AppTheme.bgDeep,
               ]),
             ),
@@ -624,10 +624,10 @@ class _StudyAiScreenState extends State<StudyAiScreen>
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.10),
+                color: Colors.red.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(14),
                 border:
-                    Border.all(color: Colors.red.withOpacity(0.30)),
+                    Border.all(color: Colors.red.withValues(alpha: 0.30)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -657,7 +657,7 @@ class _StudyAiScreenState extends State<StudyAiScreen>
               color: AppTheme.bgCard,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                  color: Colors.white.withOpacity(0.06)),
+                  color: Colors.white.withValues(alpha: 0.06)),
             ),
             child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -752,11 +752,11 @@ class _StudyAiScreenState extends State<StudyAiScreen>
                 padding: const EdgeInsets.symmetric(
                     horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withOpacity(0.12),
+                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                       color:
-                          const Color(0xFF10B981).withOpacity(0.3)),
+                          const Color(0xFF10B981).withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -848,8 +848,8 @@ class _StudyAiScreenState extends State<StudyAiScreen>
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: expanded
-              ? accent.withOpacity(0.32)
-              : Colors.white.withOpacity(0.07),
+              ? accent.withValues(alpha: 0.32)
+              : Colors.white.withValues(alpha: 0.07),
         ),
       ),
       child: Column(
@@ -872,7 +872,7 @@ class _StudyAiScreenState extends State<StudyAiScreen>
                     width: 26,
                     height: 26,
                     decoration: BoxDecoration(
-                      color: accent.withOpacity(0.14),
+                      color: accent.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Center(
@@ -915,7 +915,7 @@ class _StudyAiScreenState extends State<StudyAiScreen>
                       padding: const EdgeInsets.only(left: 4),
                       child: Icon(
                         Icons.delete_outline_rounded,
-                        color: Colors.red.withOpacity(0.5),
+                        color: Colors.red.withValues(alpha: 0.5),
                         size: 19,
                       ),
                     ),
@@ -931,7 +931,7 @@ class _StudyAiScreenState extends State<StudyAiScreen>
               height: 1,
               margin:
                   const EdgeInsets.symmetric(horizontal: 12),
-              color: Colors.white.withOpacity(0.06),
+              color: Colors.white.withValues(alpha: 0.06),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
@@ -948,13 +948,13 @@ class _StudyAiScreenState extends State<StudyAiScreen>
                       decoration: BoxDecoration(
                         color: isCorrect
                             ? const Color(0xFF10B981)
-                                .withOpacity(0.10)
-                            : Colors.white.withOpacity(0.04),
+                                .withValues(alpha: 0.10)
+                            : Colors.white.withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: isCorrect
                               ? const Color(0xFF10B981)
-                                  .withOpacity(0.35)
+                                  .withValues(alpha: 0.35)
                               : Colors.transparent,
                         ),
                       ),
@@ -994,10 +994,10 @@ class _StudyAiScreenState extends State<StudyAiScreen>
                       padding: const EdgeInsets.all(10),
                       margin: const EdgeInsets.only(bottom: 10),
                       decoration: BoxDecoration(
-                        color: Colors.amber.withOpacity(0.07),
+                        color: Colors.amber.withValues(alpha: 0.07),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                            color: Colors.amber.withOpacity(0.18)),
+                            color: Colors.amber.withValues(alpha: 0.18)),
                       ),
                       child: Row(
                         crossAxisAlignment:
@@ -1032,7 +1032,7 @@ class _StudyAiScreenState extends State<StudyAiScreen>
         color: AppTheme.bgDeep,
         border: Border(
             top: BorderSide(
-                color: Colors.white.withOpacity(0.07))),
+                color: Colors.white.withValues(alpha: 0.07))),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1047,10 +1047,10 @@ class _StudyAiScreenState extends State<StudyAiScreen>
                     const EdgeInsets.symmetric(vertical: 11),
                 margin: const EdgeInsets.only(bottom: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                      color: Colors.white.withOpacity(0.10)),
+                      color: Colors.white.withValues(alpha: 0.10)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -1163,10 +1163,10 @@ class _StudyAiScreenState extends State<StudyAiScreen>
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: accent.withOpacity(0.15),
+                      color: accent.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                          color: accent.withOpacity(0.3)),
+                          color: accent.withValues(alpha: 0.3)),
                     ),
                     child: Text('Q ${_currentIndex + 1} / $total',
                         style: TextStyle(
@@ -1181,7 +1181,7 @@ class _StudyAiScreenState extends State<StudyAiScreen>
                       child: LinearProgressIndicator(
                         value: (_currentIndex + 1) / total,
                         backgroundColor:
-                            Colors.white.withOpacity(0.08),
+                            Colors.white.withValues(alpha: 0.08),
                         color: accent,
                         minHeight: 6,
                       ),
@@ -1200,16 +1200,16 @@ class _StudyAiScreenState extends State<StudyAiScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      accent.withOpacity(0.14),
+                      accent.withValues(alpha: 0.14),
                       AppTheme.bgCard,
                     ],
                   ),
                   borderRadius: BorderRadius.circular(20),
                   border:
-                      Border.all(color: accent.withOpacity(0.22)),
+                      Border.all(color: accent.withValues(alpha: 0.22)),
                   boxShadow: [
                     BoxShadow(
-                        color: accent.withOpacity(0.08),
+                        color: accent.withValues(alpha: 0.08),
                         blurRadius: 20,
                         spreadRadius: 2)
                   ],
@@ -1251,10 +1251,10 @@ class _StudyAiScreenState extends State<StudyAiScreen>
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(0.08),
+                    color: Colors.amber.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                        color: Colors.amber.withOpacity(0.22)),
+                        color: Colors.amber.withValues(alpha: 0.22)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1338,19 +1338,19 @@ class _StudyAiScreenState extends State<StudyAiScreen>
     Color bgColor, borderColor, textColor;
     if (!answered) {
       bgColor     = AppTheme.bgCard;
-      borderColor = Colors.white.withOpacity(0.10);
+      borderColor = Colors.white.withValues(alpha: 0.10);
       textColor   = Colors.white;
     } else if (isCorrect) {
-      bgColor     = const Color(0xFF10B981).withOpacity(0.14);
-      borderColor = const Color(0xFF10B981).withOpacity(0.55);
+      bgColor     = const Color(0xFF10B981).withValues(alpha: 0.14);
+      borderColor = const Color(0xFF10B981).withValues(alpha: 0.55);
       textColor   = const Color(0xFF6EE7B7);
     } else if (isSelected) {
-      bgColor     = Colors.red.withOpacity(0.12);
-      borderColor = Colors.red.withOpacity(0.45);
+      bgColor     = Colors.red.withValues(alpha: 0.12);
+      borderColor = Colors.red.withValues(alpha: 0.45);
       textColor   = const Color(0xFFFCA5A5);
     } else {
-      bgColor     = AppTheme.bgCard.withOpacity(0.45);
-      borderColor = Colors.white.withOpacity(0.04);
+      bgColor     = AppTheme.bgCard.withValues(alpha: 0.45);
+      borderColor = Colors.white.withValues(alpha: 0.04);
       textColor   = AppTheme.textSecondary;
     }
 
@@ -1385,10 +1385,10 @@ class _StudyAiScreenState extends State<StudyAiScreen>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: answered && isCorrect
-                    ? const Color(0xFF10B981).withOpacity(0.25)
+                    ? const Color(0xFF10B981).withValues(alpha: 0.25)
                     : answered && isSelected && !isCorrect
-                        ? Colors.red.withOpacity(0.25)
-                        : accent.withOpacity(0.13),
+                        ? Colors.red.withValues(alpha: 0.25)
+                        : accent.withValues(alpha: 0.13),
               ),
               child: Center(
                   child: Text(labels[i],
@@ -1475,14 +1475,14 @@ class _StudyAiScreenState extends State<StudyAiScreen>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(colors: [
-                    scoreColor.withOpacity(0.20),
+                    scoreColor.withValues(alpha: 0.20),
                     AppTheme.bgCard
                   ]),
                   border: Border.all(
-                      color: scoreColor.withOpacity(0.45), width: 3),
+                      color: scoreColor.withValues(alpha: 0.45), width: 3),
                   boxShadow: [
                     BoxShadow(
-                        color: scoreColor.withOpacity(0.20),
+                        color: scoreColor.withValues(alpha: 0.20),
                         blurRadius: 30)
                   ],
                 ),
@@ -1519,7 +1519,7 @@ class _StudyAiScreenState extends State<StudyAiScreen>
                           : Icons.star_outline_rounded,
                       color: i < stars
                           ? Colors.amber
-                          : Colors.white.withOpacity(0.18),
+                          : Colors.white.withValues(alpha: 0.18),
                       size: 38,
                     ),
                   ),
@@ -1565,7 +1565,7 @@ class _StudyAiScreenState extends State<StudyAiScreen>
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white70,
                         side: BorderSide(
-                            color: Colors.white.withOpacity(0.2)),
+                            color: Colors.white.withValues(alpha: 0.2)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14)),
@@ -1587,7 +1587,7 @@ class _StudyAiScreenState extends State<StudyAiScreen>
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.textSecondary,
                     side: BorderSide(
-                        color: Colors.white.withOpacity(0.10)),
+                        color: Colors.white.withValues(alpha: 0.10)),
                     padding:
                         const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -1632,13 +1632,13 @@ class _UploadCard extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [gradient.first.withOpacity(0.18), AppTheme.bgCard],
+            colors: [gradient.first.withValues(alpha: 0.18), AppTheme.bgCard],
           ),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: gradient.first.withOpacity(0.40)),
+          border: Border.all(color: gradient.first.withValues(alpha: 0.40)),
           boxShadow: [
             BoxShadow(
-                color: gradient.first.withOpacity(0.10),
+                color: gradient.first.withValues(alpha: 0.10),
                 blurRadius: 20,
                 spreadRadius: 1)
           ],
@@ -1651,7 +1651,7 @@ class _UploadCard extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
                     colors: gradient
-                        .map((c) => c.withOpacity(0.5))
+                        .map((c) => c.withValues(alpha: 0.5))
                         .toList()),
               ),
               child: Center(
@@ -1678,7 +1678,7 @@ class _UploadCard extends StatelessWidget {
               ),
             ),
             Icon(Icons.chevron_right_rounded,
-                color: gradient.first.withOpacity(0.7), size: 24),
+                color: gradient.first.withValues(alpha: 0.7), size: 24),
           ],
         ),
       ),
@@ -1705,10 +1705,10 @@ class _SmallOptionBtn extends StatelessWidget {
       alignment: Alignment.centerRight,
       child: TextButton.icon(
         onPressed: onTap,
-        icon: Icon(icon, size: 16, color: color.withOpacity(0.7)),
+        icon: Icon(icon, size: 16, color: color.withValues(alpha: 0.7)),
         label: Text(label,
             style:
-                TextStyle(color: color.withOpacity(0.7), fontSize: 12)),
+                TextStyle(color: color.withValues(alpha: 0.7), fontSize: 12)),
         style: TextButton.styleFrom(
             padding:
                 const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
@@ -1754,7 +1754,7 @@ class _ReviewSummary extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -34,9 +34,9 @@ class TogetherSessionService {
     required int songDurationMs,
     required int positionMs,
     required bool isPlaying,
-    bool isVideo    = false,
-    bool isPublic   = false,
-    String country  = '',
+    bool   isVideo      = false,
+    bool   isPublic     = false,
+    String roomCategory = 'general',
   }) async {
     try {
       String code;
@@ -67,11 +67,11 @@ class TogetherSessionService {
         isPlaying:      isPlaying,
         isVideo:        isVideo,
         isPublic:       isPublic,
-        country:        country,
+        roomCategory:   roomCategory,
         updatedAt:         Timestamp.now(),
-        playbackUpdatedAt: Timestamp.now(),
+        playbackUpdatedAt: Timestamp.now(), // BUG-S01 FIX
         members:           [ownerMember.toMap()],
-        chatMessages:   [],
+        chatMessages:   [], // kept for backward compat, always empty now
       );
 
       await docRef.set(model.toFirestore());
@@ -80,24 +80,6 @@ class TogetherSessionService {
       debugPrint('[Together] createSession error: $e');
       return null;
     }
-  }
-
-  // ── Public Rooms (Social) ─────────────────────────────────────
-  /// Streams all public (isPublic=true, not ending) sessions,
-  /// sorted by member count descending. Used by SocialBloc.
-  Stream<List<SessionEntity>> watchPublicRooms() {
-    return _sessions
-        .where('isPublic', isEqualTo: true)
-        .limit(60)
-        .snapshots()
-        .map((snap) {
-      final list = snap.docs
-          .map((d) => SessionModel.fromFirestore(d).toEntity())
-          .where((s) => !s.isEnding)
-          .toList();
-      list.sort((a, b) => b.memberCount.compareTo(a.memberCount));
-      return list;
-    });
   }
 
   // ── Update stream URL ─────────────────────────────────────────
@@ -227,26 +209,26 @@ class TogetherSessionService {
     required int positionMs,
     required bool isPlaying,
     bool isVideo = false,
-    List<Map<String, dynamic>>? queue, // TASK-5: optional queue snapshot
   }) async {
     try {
-      // BUG-002: always write streamUrl — if null/empty, write '' to clear the
-      // previous song's URL. Skipping this field leaves stale URL in Firestore,
-      // causing guests to play the old song's audio under new song's metadata.
+      // BUG-HIGH-04 FIX: only write streamUrl when non-null and non-empty.
+      // Writing null (converted to '') wipes an already-uploaded URL in Firestore
+      // when the host skips to a new song while the previous upload is still in
+      // progress. _TogetherStreamUrlReady pushes the URL when the upload finishes.
       final Map<String, dynamic> data = {
         'songId':         songId,
         'songTitle':      songTitle,
         'songArtist':     songArtist,
         'songData':       songData,
-        'streamUrl':      streamUrl ?? '', // always write, '' clears stale URL
         'songDurationMs': songDurationMs,
         'positionMs':     positionMs,
         'isPlaying':      isPlaying,
         'isVideo':        isVideo,
+        // Conditional: only write streamUrl when available (BUG-HIGH-04 FIX)
+        if (streamUrl != null && streamUrl.isNotEmpty)
+          'streamUrl': streamUrl,
         'updatedAt':      Timestamp.now(),
         'playbackUpdatedAt': Timestamp.now(), // BUG-S01 FIX: separate playback anchor
-        // TASK-5: only write queue when provided and non-empty
-        if (queue != null && queue.isNotEmpty) 'queue': queue,
       };
 
       await _sessions.doc(sessionId).update(data);
@@ -268,28 +250,6 @@ class TogetherSessionService {
       });
     } catch (e) {
       debugPrint('[Together] pushSeek error: $e');
-    }
-  }
-
-  // ── YouTube video play/pause sync ─────────────────────────────
-  /// Lightweight update for YouTube video mode: only writes isPlaying +
-  /// positionMs. Does NOT overwrite song metadata or streamUrl.
-  /// Called by host's WebView when the YouTube player fires onStateChange.
-  Future<void> pushYtState({
-    required String sessionId,
-    required bool isPlaying,
-    required int positionMs,
-  }) async {
-    try {
-      await _sessions.doc(sessionId).update({
-        'isPlaying':         isPlaying,
-        'positionMs':        positionMs,
-        'updatedAt':         Timestamp.now(),
-        'playbackUpdatedAt': Timestamp.now(),
-      });
-      debugPrint('[Together] pushYtState → isPlaying=$isPlaying pos=${positionMs}ms');
-    } catch (e) {
-      debugPrint('[Together] pushYtState error: $e');
     }
   }
 
@@ -574,6 +534,42 @@ class TogetherSessionService {
 
       txn.update(ref, {'members': updatedMembers});
     });
+  }
+
+  // ── Public rooms stream (Social Hub discovery) ─────────────────
+  // Returns all public, non-ending sessions — sorted client-side by memberCount.
+  // Firestore index needed: isPublic ASC + isEnding ASC (add in Firebase console if needed)
+  Stream<List<SessionEntity>> watchPublicRooms() {
+    return _sessions
+        .where('isPublic',  isEqualTo: true)
+        .where('isEnding',  isEqualTo: false)
+        .limit(30)
+        .snapshots()
+        .map((snap) {
+      final rooms = snap.docs
+          .map((d) => SessionModel.fromFirestore(d).toEntity())
+          .toList();
+      // Sort by member count descending (trending first)
+      rooms.sort((a, b) => b.memberCount.compareTo(a.memberCount));
+      return rooms;
+    });
+  }
+
+  // ── Toggle public visibility ───────────────────────────────────
+  Future<void> setPublicVisibility({
+    required String sessionId,
+    required bool   isPublic,
+    String roomCategory = 'general',
+  }) async {
+    try {
+      await _sessions.doc(sessionId).update({
+        'isPublic':     isPublic,
+        'roomCategory': roomCategory,
+        'updatedAt':    Timestamp.now(),
+      });
+    } catch (e) {
+      debugPrint('[Together] setPublicVisibility error: $e');
+    }
   }
 
   // ── Real-time stream ──────────────────────────────────────────

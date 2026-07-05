@@ -207,7 +207,7 @@ class _VocabHistoryScreenState extends State<VocabHistoryScreen>
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: Colors.white.withOpacity(0.07)),
+        child: Container(height: 1, color: Colors.white.withValues(alpha: 0.07)),
       ),
     );
   }
@@ -218,12 +218,12 @@ class _VocabHistoryScreenState extends State<VocabHistoryScreen>
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [accent.withOpacity(0.15), accent.withOpacity(0.05)],
+          colors: [accent.withValues(alpha: 0.15), accent.withValues(alpha: 0.05)],
           begin : Alignment.topLeft,
           end   : Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accent.withOpacity(0.2)),
+        border: Border.all(color: accent.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -268,7 +268,7 @@ class _VocabHistoryScreenState extends State<VocabHistoryScreen>
           color       : AppTheme.bgCard,
           borderRadius: BorderRadius.circular(14),
           border      : Border.all(
-            color: _searching ? accent.withOpacity(0.5) : Colors.white.withOpacity(0.08)),
+            color: _searching ? accent.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.08)),
         ),
         child: TextField(
           controller: _searchCtrl,
@@ -321,7 +321,7 @@ class _VocabHistoryScreenState extends State<VocabHistoryScreen>
           labelColor       : Colors.white,
           unselectedLabelColor: AppTheme.textSecondary,
           indicator: BoxDecoration(
-            gradient    : LinearGradient(colors: [accent, accent.withOpacity(0.7)]),
+            gradient    : LinearGradient(colors: [accent, accent.withValues(alpha: 0.7)]),
             borderRadius: BorderRadius.circular(10),
           ),
           indicatorSize: TabBarIndicatorSize.tab,
@@ -454,7 +454,7 @@ class _SessionCard extends StatelessWidget {
         alignment  : Alignment.centerRight,
         padding    : const EdgeInsets.only(right: 20),
         decoration : BoxDecoration(
-          color       : Colors.redAccent.withOpacity(0.2),
+          color       : Colors.redAccent.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(16),
         ),
         child: const Icon(Icons.delete_rounded, color: Colors.redAccent, size: 24),
@@ -468,7 +468,7 @@ class _SessionCard extends StatelessWidget {
           decoration: BoxDecoration(
             color       : AppTheme.bgCard,
             borderRadius: BorderRadius.circular(16),
-            border      : Border.all(color: Colors.white.withOpacity(0.07)),
+            border      : Border.all(color: Colors.white.withValues(alpha: 0.07)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -478,7 +478,7 @@ class _SessionCard extends StatelessWidget {
                   Container(
                     width: 36, height: 36,
                     decoration: BoxDecoration(
-                      color: accent.withOpacity(0.12),
+                      color: accent.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(Icons.chat_bubble_rounded,
@@ -506,7 +506,7 @@ class _SessionCard extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: 'Poppins',
                             fontSize  : 11,
-                            color     : AppTheme.textSecondary.withOpacity(0.7),
+                            color     : AppTheme.textSecondary.withValues(alpha: 0.7),
                           ),
                         ),
                       ],
@@ -519,7 +519,7 @@ class _SessionCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color       : accent.withOpacity(0.15),
+                          color       : accent.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -537,14 +537,14 @@ class _SessionCard extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.bookmark_rounded,
-                                size: 11, color: accent.withOpacity(0.7)),
+                                size: 11, color: accent.withValues(alpha: 0.7)),
                             const SizedBox(width: 2),
                             Text(
                               '${session.bookmarkCount}',
                               style: TextStyle(
                                 fontFamily: 'Poppins',
                                 fontSize  : 10,
-                                color     : accent.withOpacity(0.7),
+                                color     : accent.withValues(alpha: 0.7),
                               ),
                             ),
                           ],
@@ -563,7 +563,7 @@ class _SessionCard extends StatelessWidget {
                   style    : TextStyle(
                     fontFamily: 'Poppins',
                     fontSize  : 12,
-                    color     : AppTheme.textSecondary.withOpacity(0.8),
+                    color     : AppTheme.textSecondary.withValues(alpha: 0.8),
                     height    : 1.4,
                   ),
                 ),
@@ -627,7 +627,7 @@ class _BookmarkCard extends StatelessWidget {
         decoration: BoxDecoration(
           color       : AppTheme.bgCard,
           borderRadius: BorderRadius.circular(16),
-          border      : Border.all(color: accent.withOpacity(0.18)),
+          border      : Border.all(color: accent.withValues(alpha: 0.18)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -637,7 +637,7 @@ class _BookmarkCard extends StatelessWidget {
                 Container(
                   width: 32, height: 32,
                   decoration: BoxDecoration(
-                    color: accent.withOpacity(0.15),
+                    color: accent.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.bookmark_rounded, color: accent, size: 16),
@@ -651,7 +651,7 @@ class _BookmarkCard extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: 'Poppins',
                       fontSize  : 11,
-                      color     : accent.withOpacity(0.8),
+                      color     : accent.withValues(alpha: 0.8),
                     ),
                   ),
                 ),
@@ -687,11 +687,11 @@ class _BookmarkCard extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: 'Poppins',
                     fontSize  : 11,
-                    color     : accent.withOpacity(0.7),
+                    color     : accent.withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(width: 4),
-                Icon(Icons.open_in_new_rounded, size: 12, color: accent.withOpacity(0.7)),
+                Icon(Icons.open_in_new_rounded, size: 12, color: accent.withValues(alpha: 0.7)),
               ],
             ),
           ],
@@ -752,7 +752,7 @@ class _BookmarkDetailSheet extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: 'Poppins',
                     fontSize  : 12,
-                    color     : accent.withOpacity(0.8),
+                    color     : accent.withValues(alpha: 0.8),
                   ),
                 ),
               ),
@@ -766,7 +766,7 @@ class _BookmarkDetailSheet extends StatelessWidget {
             decoration : BoxDecoration(
               color       : AppTheme.bgSurface,
               borderRadius: BorderRadius.circular(14),
-              border      : Border.all(color: accent.withOpacity(0.15)),
+              border      : Border.all(color: accent.withValues(alpha: 0.15)),
             ),
             child: SelectableText(
               message.content,
@@ -795,9 +795,9 @@ class _BookmarkDetailSheet extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color       : Colors.white.withOpacity(0.06),
+                color       : Colors.white.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(12),
-                border      : Border.all(color: Colors.white.withOpacity(0.1)),
+                border      : Border.all(color: Colors.white.withValues(alpha: 0.1)),
               ),
               alignment: Alignment.center,
               child: const Row(
@@ -826,9 +826,9 @@ class _BookmarkDetailSheet extends StatelessWidget {
                   child: Container(
                     padding   : const EdgeInsets.symmetric(vertical: 13),
                     decoration: BoxDecoration(
-                      color       : Colors.redAccent.withOpacity(0.1),
+                      color       : Colors.redAccent.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                      border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
                     ),
                     alignment: Alignment.center,
                     child: const Row(
@@ -857,7 +857,7 @@ class _BookmarkDetailSheet extends StatelessWidget {
                     padding   : const EdgeInsets.symmetric(vertical: 13),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [accent, accent.withOpacity(0.7)],
+                        colors: [accent, accent.withValues(alpha: 0.7)],
                         begin : Alignment.topLeft,
                         end   : Alignment.bottomRight,
                       ),
@@ -941,7 +941,7 @@ class _Divider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width : 1, height: 36,
-      color : Colors.white.withOpacity(0.08),
+      color : Colors.white.withValues(alpha: 0.08),
     );
   }
 }
@@ -970,10 +970,10 @@ class _EmptyState extends StatelessWidget {
             Container(
               width: 80, height: 80,
               decoration: BoxDecoration(
-                color: accent.withOpacity(0.1),
+                color: accent.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: accent.withOpacity(0.5), size: 36),
+              child: Icon(icon, color: accent.withValues(alpha: 0.5), size: 36),
             ),
             const SizedBox(height: 16),
             Text(

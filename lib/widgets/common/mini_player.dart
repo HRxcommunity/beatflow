@@ -73,17 +73,17 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
                   color: AppTheme.bgCard,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: accent.withOpacity(0.15 + 0.1 * _glowAnim.value),
+                    color: accent.withValues(alpha: 0.15 + 0.1 * _glowAnim.value),
                     width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: accent.withOpacity(0.12 * _glowAnim.value),
+                      color: accent.withValues(alpha: 0.12 * _glowAnim.value),
                       blurRadius: 20,
                       spreadRadius: 1,
                     ),
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.35),
+                      color: Colors.black.withValues(alpha: 0.35),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -107,7 +107,7 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(colors: [
                             accent,
-                            accent.withOpacity(0.5),
+                            accent.withValues(alpha: 0.5),
                           ]),
                         ),
                       ),
@@ -159,7 +159,7 @@ class _MiniPlayerState extends State<MiniPlayer> with TickerProviderStateMixin {
                             height: 38,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: accent.withOpacity(0.9),
+                              color: accent.withValues(alpha: 0.9),
                             ),
                             child: state.isLoading
                                 ? const Padding(

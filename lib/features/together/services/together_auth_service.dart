@@ -14,7 +14,21 @@ class TogetherAuthService {
   /// Returns the User or null on failure.
   Future<User?> signInAnonymously({String? displayName}) async {
     try {
-      if (_auth.currentUser != null) return _auth.currentUser;
+      if (_auth.currentUser != null) {
+        // BUG-MED-02 FIX: update display name if user changed it between sessions.
+        // Previously this returned early without calling updateDisplayName(),
+        // so the old name persisted in Firebase Auth and session member lists.
+        if (displayName != null &&
+            displayName.isNotEmpty &&
+            _auth.currentUser!.displayName != displayName) {
+          try {
+            await _auth.currentUser!.updateDisplayName(displayName);
+          } catch (e) {
+            debugPrint('[Together] updateDisplayName error: $e');
+          }
+        }
+        return _auth.currentUser;
+      }
       final cred = await _auth.signInAnonymously();
       if (displayName != null && displayName.isNotEmpty) {
         await cred.user?.updateDisplayName(displayName);

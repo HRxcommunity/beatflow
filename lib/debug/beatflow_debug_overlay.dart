@@ -158,10 +158,10 @@ class _BadgeButton extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A2E),
         borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
-        border: Border.all(color: color.withOpacity(0.7), width: 1.5),
+        border: Border.all(color: color.withValues(alpha: 0.7), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.3),
+            color: color.withValues(alpha: 0.3),
             blurRadius: 8,
             spreadRadius: 1,
           ),
@@ -340,9 +340,9 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.15),
+          color: color.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.withOpacity(0.4)),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
         ),
         child: Text(label, style: TextStyle(color: color, fontSize: 10, fontFamily: 'monospace')),
       );
@@ -397,16 +397,16 @@ class _FilterBtn extends StatelessWidget {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.2) : Colors.transparent,
+            color: isSelected ? color.withValues(alpha: 0.2) : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? color : color.withOpacity(0.3),
+              color: isSelected ? color : color.withValues(alpha: 0.3),
             ),
           ),
           child: Text(
             '$label ($count)',
             style: TextStyle(
-              color: isSelected ? color : color.withOpacity(0.6),
+              color: isSelected ? color : color.withValues(alpha: 0.6),
               fontSize: 10,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
               fontFamily: 'monospace',
@@ -428,7 +428,7 @@ class _LogTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        color: entry.color.withOpacity(0.06),
+        color: entry.color.withValues(alpha: 0.06),
         border: Border(
           left: BorderSide(color: entry.color, width: 3),
         ),
@@ -457,7 +457,7 @@ class _LogTile extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF7B61FF).withOpacity(0.2),
+                  color: const Color(0xFF7B61FF).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -475,7 +475,7 @@ class _LogTile extends StatelessWidget {
             Text(
               entry.fmtTime(entry.time),
               style: TextStyle(
-                color: Colors.white.withOpacity(0.3),
+                color: Colors.white.withValues(alpha: 0.3),
                 fontSize: 9,
                 fontFamily: 'monospace',
               ),
@@ -487,7 +487,7 @@ class _LogTile extends StatelessWidget {
           child: Text(
             entry.message,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(alpha: 0.8),
               fontSize: 11,
               fontFamily: 'monospace',
             ),
@@ -530,7 +530,7 @@ class _LogTile extends StatelessWidget {
             Text(
               entry.stack.toString().split('\n').take(8).join('\n'),
               style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
+                color: Colors.white.withValues(alpha: 0.4),
                 fontSize: 9,
                 fontFamily: 'monospace',
               ),
@@ -556,7 +556,7 @@ class _BottomBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: Row(
         children: [
-          Icon(Icons.circle, size: 8, color: Colors.greenAccent.withOpacity(0.8)),
+          Icon(Icons.circle, size: 8, color: Colors.greenAccent.withValues(alpha: 0.8)),
           const SizedBox(width: 6),
           Text(
             '$logCount entries',

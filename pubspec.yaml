@@ -69,13 +69,22 @@ dependencies:
   # Video playback — local MP4 files
   video_player: ^2.9.1
 
+  # Agora RTC Engine — BeatFlow Together video calls
+  # BUG-C01 FIX: was missing from pubspec; VideoCallScreen would break the build
+  # the moment its route is added to app_router.dart.
+  agora_rtc_engine: ^6.3.2
+
   # In-app browser — HRxBrowse (privacy mode, ad-block, bookmarks)
   webview_flutter: ^4.7.0
+  # Declared explicitly (it is a transitive dep of webview_flutter) so we
+  # can import AndroidWebViewController for setMediaPlaybackRequiresUserGesture.
+  # This is the critical fix for YouTube autoplay / black screen on Android.
+  webview_flutter_android: ^3.16.0
 
   # OTA Updates — reads versionName from pubspec at runtime
   package_info_plus: ^8.1.0
 
-  # QR code generation — Social feature, room share QR
+  # Social — QR code generator for room sharing
   qr_flutter: ^4.1.0
 
   # Local notifications — vocab learning reminders (pinned to last 17.x:

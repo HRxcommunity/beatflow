@@ -8,10 +8,21 @@ service cloud.firestore {
       // Only authenticated users can create sessions (must be the owner)
       allow create: if request.auth != null
                     && request.resource.data.ownerId == request.auth.uid;
-      // Any authenticated user can update a session.
-      // This allows guests to: join, update online presence.
-      // App-layer BLoC enforces who can push playback (owner only).
-      allow update: if request.auth != null;
+      // BUG-Q02 FIX: was 'any authenticated user can update', meaning any
+      // user who knew the session ID could overwrite streamUrl, ownerId, etc.
+      // Now: owner has full update access; guests may ONLY update member
+      // presence/join fields and cannot touch playback control fields.
+      allow update: if request.auth != null && (
+        // Owner can update any field
+        resource.data.ownerId == request.auth.uid
+        ||
+        // Guests may only touch join/presence fields — not playback controls
+        (
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['streamUrl', 'ownerId', 'songId', 'positionMs', 'isPlaying',
+                     'previewDurationMs', 'videoId', 'videoPositionMs'])
+        )
+      );
       // Only owner can delete (when ending the session)
       allow delete: if request.auth != null
                     && resource.data.ownerId == request.auth.uid;

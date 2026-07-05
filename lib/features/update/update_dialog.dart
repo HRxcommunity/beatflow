@@ -64,12 +64,12 @@ class _UpdateDialogState extends State<_UpdateDialog> {
             ),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: cs.primary.withOpacity(0.45),
+              color: cs.primary.withValues(alpha: 0.45),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: cs.primary.withOpacity(0.28),
+                color: cs.primary.withValues(alpha: 0.28),
                 blurRadius: 48,
                 spreadRadius: 2,
               ),
@@ -97,8 +97,8 @@ class _UpdateDialogState extends State<_UpdateDialog> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            cs.primary.withOpacity(0.22),
-            const Color(0xFF00D4FF).withOpacity(0.08),
+            cs.primary.withValues(alpha: 0.22),
+            const Color(0xFF00D4FF).withValues(alpha: 0.08),
           ],
         ),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -110,9 +110,9 @@ class _UpdateDialogState extends State<_UpdateDialog> {
           Container(
             padding: const EdgeInsets.all(11),
             decoration: BoxDecoration(
-              color: cs.primary.withOpacity(0.18),
+              color: cs.primary.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: cs.primary.withOpacity(0.3)),
+              border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
             ),
             child: Icon(
               Icons.system_update_alt_rounded,
@@ -142,14 +142,14 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                   children: [
                     _VersionChip(
                       label: 'v${widget.info.currentVersion}',
-                      bg: Colors.white.withOpacity(0.12),
+                      bg: Colors.white.withValues(alpha: 0.12),
                       fg: Colors.white70,
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       child: Icon(
                         Icons.arrow_forward_rounded,
-                        color: cs.primary.withOpacity(0.7),
+                        color: cs.primary.withValues(alpha: 0.7),
                         size: 14,
                       ),
                     ),
@@ -191,9 +191,9 @@ class _UpdateDialogState extends State<_UpdateDialog> {
             constraints: const BoxConstraints(maxHeight: 160),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.04),
+              color: Colors.white.withValues(alpha: 0.04),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),
             child: SingleChildScrollView(
               child: Text(
@@ -243,7 +243,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
             ),
             style: FilledButton.styleFrom(
               backgroundColor: cs.primary,
-              disabledBackgroundColor: cs.primary.withOpacity(0.5),
+              disabledBackgroundColor: cs.primary.withValues(alpha: 0.5),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14)),

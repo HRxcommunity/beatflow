@@ -71,7 +71,11 @@ class _TogetherSyncListenerState extends State<TogetherSyncListener>
   // ── Sync config ───────────────────────────────────────────────
   static const _syncToleranceMs  = 1500; // BUG-S02 FIX: 4000ms was audibly too loose
   static const _readyTimeoutMs   = 6000;
-  static const _postLoadSettleMs = 300;
+  // BUG-T02 FIX: was 300ms — on slow phones AudioProcessingState.buffering
+  // can still be active at 300ms, letting the watchdog fire PlayerResume()
+  // on an already-loading player → audio stutter / double-seek.
+  // 800ms gives even mid-range Android devices enough time to settle.
+  static const _postLoadSettleMs = 800;
 
   // ── Reset helpers ─────────────────────────────────────────────
   void _resetSyncState() {

@@ -67,7 +67,7 @@ class _WaveformVisualizerState extends State<WaveformVisualizer>
                 height: state.isPlaying ? widget.height * _heights[i] : widget.height * 0.2,
                 margin: const EdgeInsets.symmetric(horizontal: 1.5),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.7 + 0.3 * _heights[i]),
+                  color: color.withValues(alpha: 0.7 + 0.3 * _heights[i]),
                   borderRadius: BorderRadius.circular(2),
                 ),
               );

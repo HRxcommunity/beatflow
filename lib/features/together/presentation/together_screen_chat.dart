@@ -202,13 +202,13 @@ class _TogetherChatPanelState extends State<TogetherChatPanel> {
                           Text('💬',
                               style: TextStyle(
                                   fontSize: 40,
-                                  color: Colors.white.withOpacity(0.2))),
+                                  color: Colors.white.withValues(alpha: 0.2))),
                           const SizedBox(height: 10),
                           Text(
                             'No messages yet.\nSay hi! 👋',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.3),
+                              color: Colors.white.withValues(alpha: 0.3),
                               fontSize: 14,
                               height: 1.6,
                             ),
@@ -293,7 +293,7 @@ class _TogetherChatPanelState extends State<TogetherChatPanel> {
                     color: AppTheme.bgCard,
                     border: Border(
                       top: BorderSide(
-                          color: Colors.white.withOpacity(0.07), width: 1),
+                          color: Colors.white.withValues(alpha: 0.07), width: 1),
                     ),
                   ),
                   child: Column(
@@ -312,7 +312,7 @@ class _TogetherChatPanelState extends State<TogetherChatPanel> {
                               const SizedBox(width: 8),
                               Text('Uploading...',
                                   style: TextStyle(
-                                      color: widget.accent.withOpacity(0.8),
+                                      color: widget.accent.withValues(alpha: 0.8),
                                       fontSize: 12)),
                             ],
                           ),
@@ -378,10 +378,10 @@ class _TogetherChatPanelState extends State<TogetherChatPanel> {
                                 hintText: 'Message...',
                                 hintStyle: TextStyle(
                                     color:
-                                        AppTheme.textSecondary.withOpacity(0.5),
+                                        AppTheme.textSecondary.withValues(alpha: 0.5),
                                     fontSize: 14),
                                 filled: true,
-                                fillColor: Colors.white.withOpacity(0.06),
+                                fillColor: Colors.white.withValues(alpha: 0.06),
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 14, vertical: 10),
                                 border: OutlineInputBorder(
@@ -409,7 +409,7 @@ class _TogetherChatPanelState extends State<TogetherChatPanel> {
                                 shape: BoxShape.circle,
                                 gradient: LinearGradient(colors: [
                                   widget.accent,
-                                  widget.accent.withOpacity(0.75),
+                                  widget.accent.withValues(alpha: 0.75),
                                 ]),
                               ),
                               child: const Icon(Icons.send_rounded,
@@ -510,7 +510,7 @@ class _TextBubble extends StatelessWidget {
                     child: Text(msg.displayName,
                         style: TextStyle(
                             fontSize: 11,
-                            color: Colors.white.withOpacity(0.45),
+                            color: Colors.white.withValues(alpha: 0.45),
                             fontWeight: FontWeight.w500)),
                   ),
                 Container(
@@ -518,8 +518,8 @@ class _TextBubble extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: isMe
-                        ? accent.withOpacity(0.85)
-                        : Colors.white.withOpacity(0.09),
+                        ? accent.withValues(alpha: 0.85)
+                        : Colors.white.withValues(alpha: 0.09),
                     borderRadius: BorderRadius.only(
                       topLeft:     const Radius.circular(16),
                       topRight:    const Radius.circular(16),
@@ -535,7 +535,7 @@ class _TextBubble extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(timeStr,
                     style: TextStyle(
-                        fontSize: 10, color: Colors.white.withOpacity(0.3))),
+                        fontSize: 10, color: Colors.white.withValues(alpha: 0.3))),
               ],
             ),
           ),
@@ -574,12 +574,12 @@ class _EmojiBubble extends StatelessWidget {
                   Text(msg.displayName,
                       style: TextStyle(
                           fontSize: 11,
-                          color: Colors.white.withOpacity(0.45),
+                          color: Colors.white.withValues(alpha: 0.45),
                           fontWeight: FontWeight.w500)),
                 Text(msg.text, style: const TextStyle(fontSize: 36)),
                 Text(timeStr,
                     style: TextStyle(
-                        fontSize: 10, color: Colors.white.withOpacity(0.3))),
+                        fontSize: 10, color: Colors.white.withValues(alpha: 0.3))),
               ],
             ),
           ),
@@ -621,7 +621,7 @@ class _MediaBubble extends StatelessWidget {
                   Text(msg.displayName,
                       style: TextStyle(
                           fontSize: 11,
-                          color: Colors.white.withOpacity(0.45))),
+                          color: Colors.white.withValues(alpha: 0.45))),
                 if (msg.mediaUrl != null)
                   GestureDetector(
                     onTap: () => _openImageFullscreen(context, msg.mediaUrl!),
@@ -655,7 +655,7 @@ class _MediaBubble extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(timeStr,
                     style: TextStyle(
-                        fontSize: 10, color: Colors.white.withOpacity(0.3))),
+                        fontSize: 10, color: Colors.white.withValues(alpha: 0.3))),
               ],
             ),
           ),
@@ -803,8 +803,8 @@ class _FileBubble extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 220),
             decoration: BoxDecoration(
               color: isMe
-                  ? accent.withOpacity(0.8)
-                  : Colors.white.withOpacity(0.09),
+                  ? accent.withValues(alpha: 0.8)
+                  : Colors.white.withValues(alpha: 0.09),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
@@ -831,7 +831,7 @@ class _FileBubble extends StatelessWidget {
                               fontSize: 10,
                               color: isMe
                                   ? Colors.white60
-                                  : Colors.white.withOpacity(0.3))),
+                                  : Colors.white.withValues(alpha: 0.3))),
                     ],
                   ),
                 ),
@@ -876,16 +876,16 @@ class _YoutubeBubble extends StatelessWidget {
               child: Text(msg.displayName,
                   style: TextStyle(
                       fontSize: 11,
-                      color: Colors.white.withOpacity(0.45),
+                      color: Colors.white.withValues(alpha: 0.45),
                       fontWeight: FontWeight.w500)),
             ),
           Container(
             constraints: const BoxConstraints(maxWidth: 260),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.07),
+              color: Colors.white.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                  color: const Color(0xFFFF0000).withOpacity(0.3), width: 1),
+                  color: const Color(0xFFFF0000).withValues(alpha: 0.3), width: 1),
             ),
             clipBehavior: Clip.hardEdge,
             child: Column(
@@ -974,7 +974,7 @@ class _YoutubeBubble extends StatelessWidget {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
                                 gradient: LinearGradient(
-                                    colors: [accent, accent.withOpacity(0.7)]),
+                                    colors: [accent, accent.withValues(alpha: 0.7)]),
                               ),
                               child: const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1001,7 +1001,7 @@ class _YoutubeBubble extends StatelessWidget {
           const SizedBox(height: 2),
           Text(timeStr,
               style: TextStyle(
-                  fontSize: 10, color: Colors.white.withOpacity(0.3))),
+                  fontSize: 10, color: Colors.white.withValues(alpha: 0.3))),
         ],
       ),
     );
@@ -1029,7 +1029,7 @@ class _Avatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-            colors: [color.withOpacity(0.5), AppTheme.bgSurface]),
+            colors: [color.withValues(alpha: 0.5), AppTheme.bgSurface]),
       ),
       child: Center(
         child: Text(
@@ -1056,7 +1056,7 @@ class _IconBtn extends StatelessWidget {
         width: 36, height: 36,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.white.withOpacity(0.06),
+          color: Colors.white.withValues(alpha: 0.06),
         ),
         child: Icon(icon, color: color, size: 18),
       ),

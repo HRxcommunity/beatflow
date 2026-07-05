@@ -80,10 +80,10 @@ class GamesPanel extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: accentColor.withOpacity(0.2),
+                        color: accentColor.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                            color: accentColor.withOpacity(0.4), width: 1),
+                            color: accentColor.withValues(alpha: 0.4), width: 1),
                       ),
                       child: Text(
                         '${gs.activeGamesCount} Live',
@@ -177,7 +177,7 @@ class GamesPanel extends StatelessWidget {
                                 content: Text(
                                     '${type.emoji} Challenge sent to ${member.displayName}!'),
                                 backgroundColor:
-                                    accentColor.withOpacity(0.9),
+                                    accentColor.withValues(alpha: 0.9),
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12)),
@@ -267,12 +267,12 @@ class _InviteCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            accentColor.withOpacity(0.12),
-            accentColor.withOpacity(0.06),
+            accentColor.withValues(alpha: 0.12),
+            accentColor.withValues(alpha: 0.06),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accentColor.withOpacity(0.35), width: 1),
+        border: Border.all(color: accentColor.withValues(alpha: 0.35), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,7 +391,7 @@ class _ActiveGameCard extends StatelessWidget {
         border: Border.all(
             color: isFinished
                 ? Colors.white10
-                : accentColor.withOpacity(0.25),
+                : accentColor.withValues(alpha: 0.25),
             width: 1),
       ),
       child: Row(
@@ -450,7 +450,7 @@ class _ActiveGameCard extends StatelessWidget {
                       : 'Watch',
               color: amSpectator
                   ? const Color(0xFF0EA5E9)
-                  : accentColor.withOpacity(0.6),
+                  : accentColor.withValues(alpha: 0.6),
               onTap: onWatch,
             )
           else if (amPlayer || amSpectator)
@@ -490,7 +490,7 @@ class _MemberChallengeRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.07), width: 1),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -499,7 +499,7 @@ class _MemberChallengeRow extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 16,
-                backgroundColor: accentColor.withOpacity(0.2),
+                backgroundColor: accentColor.withValues(alpha: 0.2),
                 child: Text(
                   member.displayName.isNotEmpty
                       ? member.displayName[0].toUpperCase()
@@ -616,7 +616,7 @@ class _GameTypeChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
+          color: Colors.white.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Colors.white12, width: 1),
         ),
@@ -657,9 +657,9 @@ class _SmallButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
+            color: color.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: color.withOpacity(0.4), width: 1),
+            border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
           ),
           child: Text(
             label,
@@ -687,7 +687,7 @@ class _EmptyHint extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04),
+          color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.white10, width: 1),
         ),
@@ -717,7 +717,7 @@ class _GameInfoRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(

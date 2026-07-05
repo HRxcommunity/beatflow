@@ -77,6 +77,13 @@ class BeatFlowAudioHandler extends BaseAudioHandler
 
   Future<void> playSongs(List<SongEntity> songs, int initialIndex,
       {bool gapless = true}) async {
+    // BUG-CRIT-04 FIX: guard against empty list → ConcatenatingAudioSource
+    // throws RangeError when initialIndex is out of range on empty source.
+    if (songs.isEmpty) {
+      debugPrint('[AudioHandler] playSongs: empty list — ignoring');
+      return;
+    }
+    final clampedIndex = initialIndex.clamp(0, songs.length - 1);
     final items = songs.map(_songToMediaItem).toList();
     queue.add(items);
 
@@ -94,7 +101,7 @@ class BeatFlowAudioHandler extends BaseAudioHandler
           children: sources,
           useLazyPreparation: !gapless,
         ),
-        initialIndex: initialIndex,
+        initialIndex: clampedIndex, // BUG-CRIT-04 FIX: clamped to prevent RangeError
       );
       await _player.setShuffleModeEnabled(false);
       await _player.play();
@@ -140,9 +147,10 @@ class BeatFlowAudioHandler extends BaseAudioHandler
 
     try {
       final uri    = Uri.parse(streamUrl);
-      final source = streamUrl.contains('.m3u8')
-          ? HlsAudioSource(uri, tag: item)
-          : AudioSource.uri(uri, tag: item);
+      // BUG-Y03 FIX: HlsAudioSource was deprecated in just_audio 0.9.34+.
+      // AudioSource.uri() auto-detects HLS from the .m3u8 extension, so a
+      // separate branch is no longer needed.
+      final source = AudioSource.uri(uri, tag: item);
 
       await _player.setAudioSource(source);
       await _player.play();
@@ -207,10 +215,17 @@ class BeatFlowAudioHandler extends BaseAudioHandler
     await _player.play();
   }
 
-  // Keep foreground service alive when task removed from recents
+  // BUG-P02 FIX: On Android 14+ some OEM ROMs (MIUI, ColorOS, OneUI) can hang
+  // the foreground service if super is never called. We call it inside try/catch
+  // to gracefully handle StopException while still keeping playback alive on
+  // stock Android where not calling super is the correct behaviour.
   @override
   Future<void> onTaskRemoved() async {
-    // Do NOT stop — keep playing in background
+    try {
+      await super.onTaskRemoved();
+    } catch (_) {
+      // StopException on OEM ROMs — intentionally swallowed to keep playback
+    }
   }
 
   // ── Extras ───────────────────────────────────────────────────

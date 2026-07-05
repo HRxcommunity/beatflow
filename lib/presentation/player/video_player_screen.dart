@@ -33,6 +33,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Timer? _hideTimer;
   // Sync: keep VideoPlayerController position aligned with PlayerBloc
   Timer? _syncTimer;
+  // BUG-MED-01 FIX: latch to prevent cascading seekTo() calls from timer
+  bool _isSeeking = false;
 
   @override
   void initState() {
@@ -48,7 +50,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _initPlayer() async {
+    // BUG-CRIT-03 FIX: check file existence before creating controller.
+    // Missing file → PlatformException instead of friendly error.
     final file = File(widget.song.data);
+    if (!await file.exists()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Video file not found on device.')),
+        );
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+
     // BUG-VID-AUDIOFOCUS FIX: mixWithOthers=true prevents ExoPlayer from
     // requesting AUDIOFOCUS_GAIN during initialize() and play(). Without this,
     // VideoPlayerController steals audio focus from just_audio the moment it
@@ -59,9 +73,28 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       file,
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
     );
-    await _controller.initialize();
+
+    try {
+      await _controller.initialize();
+    } catch (e) {
+      debugPrint('[VideoPlayer] initialize error: $e');
+      await _controller.dispose();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Cannot play video: $e')),
+        );
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+
+    // BUG-CRIT-03 FIX: mounted checks after every await to prevent
+    // "use of BuildContext after dispose" and "setState after dispose" crashes.
+    if (!mounted) { await _controller.dispose(); return; }
+
     // Muted: audio comes from just_audio (registered via PlayerBloc).
     await _controller.setVolume(0.0);
+    if (!mounted) { await _controller.dispose(); return; }
 
     _controller.addListener(() {
       if (mounted) setState(() {});
@@ -73,6 +106,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final playerPos = context.read<PlayerBloc>().state.position;
     if (playerPos > Duration.zero) {
       await _controller.seekTo(playerPos);
+      if (!mounted) return; // BUG-CRIT-03 FIX: guard after seekTo await
     }
     _controller.play();
     _scheduleHide();
@@ -97,8 +131,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       final drift = (audioPos - videoPos).inMilliseconds.abs();
       // 3-second tolerance: tight enough to be invisible, loose enough to not
       // constantly seek (which re-triggers buffering every time).
-      if (drift > 3000) {
-        _controller.seekTo(audioPos);
+      if (drift > 3000 && !_isSeeking) {
+        // BUG-MED-01 FIX: latch prevents cascading seeks when seekTo takes >2s
+        _isSeeking = true;
+        _controller.seekTo(audioPos).whenComplete(() => _isSeeking = false);
       }
       // Mirror play/pause state (only when not buffering)
       if (playerState.isPlaying && !_controller.value.isPlaying &&
@@ -202,10 +238,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withOpacity(0.7),
+                        Colors.black.withValues(alpha: 0.7),
                         Colors.transparent,
                         Colors.transparent,
-                        Colors.black.withOpacity(0.8),
+                        Colors.black.withValues(alpha: 0.8),
                       ],
                       stops: const [0, 0.2, 0.7, 1],
                     ),
@@ -242,7 +278,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                     Text(
                                       widget.song.artist,
                                       style: TextStyle(
-                                        color: Colors.white.withOpacity(0.7),
+                                        color: Colors.white.withValues(alpha: 0.7),
                                         fontSize: 12,
                                       ),
                                     ),
@@ -274,10 +310,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                 width: 64,
                                 height: 64,
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
+                                  color: Colors.white.withValues(alpha: 0.2),
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                      color: Colors.white.withOpacity(0.5),
+                                      color: Colors.white.withValues(alpha: 0.5),
                                       width: 2),
                                 ),
                                 child: Icon(
@@ -330,7 +366,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                         trackHeight: 3,
                                         activeTrackColor: AppTheme.accentViolet,
                                         inactiveTrackColor:
-                                            Colors.white.withOpacity(0.3),
+                                            Colors.white.withValues(alpha: 0.3),
                                         thumbColor: AppTheme.accentViolet,
                                         overlayShape:
                                             SliderComponentShape.noOverlay,
@@ -356,14 +392,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                           _formatDuration(pos),
                                           style: TextStyle(
                                               color:
-                                                  Colors.white.withOpacity(0.8),
+                                                  Colors.white.withValues(alpha: 0.8),
                                               fontSize: 11),
                                         ),
                                         Text(
                                           _formatDuration(total),
                                           style: TextStyle(
                                               color:
-                                                  Colors.white.withOpacity(0.8),
+                                                  Colors.white.withValues(alpha: 0.8),
                                               fontSize: 11),
                                         ),
                                       ],

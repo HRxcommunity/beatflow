@@ -13,14 +13,14 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
 import 'presentation/player/player_bloc.dart';
-import 'domain/entities/player_state_entity.dart';
 import 'presentation/songs/library_bloc.dart';
 import 'presentation/settings/settings_bloc.dart';
 import 'features/together/bloc/together_bloc.dart';
 import 'features/together/bloc/game_bloc.dart';
 import 'features/together/presentation/together_sync_listener.dart';
-import 'features/social/bloc/social_bloc.dart';
 import 'features/ai_vocab/vocab_notif_service.dart';
+import 'features/social/bloc/social_bloc.dart';
+import 'features/social/services/social_service.dart';
 import 'widgets/common/app_background.dart';
 
 void main() async {
@@ -103,7 +103,7 @@ class BeatFlowApp extends StatelessWidget {
         BlocProvider(
           create: (_) => GameBloc(),
         ),
-        // Social — friends, activity feed, public rooms
+        // Social Hub — friends, public rooms, activity feed
         BlocProvider(
           create: (_) => SocialBloc(
             socialService:  sl.socialService,
@@ -333,28 +333,6 @@ class _TogetherNotificationOverlayState
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
-        // ── Social activity sync — broadcast what's playing ──────────────
-        BlocListener<PlayerBloc, PlayerStateEntity>(
-          listenWhen: (prev, curr) =>
-              prev.currentSong?.id != curr.currentSong?.id ||
-              prev.isPlaying != curr.isPlaying,
-          listener: (ctx, ps) {
-            final tb  = ctx.read<TogetherBloc>().state;
-            final soc = ctx.read<SocialBloc>();
-            if (ps.currentSong == null) {
-              soc.add(SocialClearActivity());
-              return;
-            }
-            if (ps.isPlaying) {
-              soc.add(SocialUpdateMyActivity(
-                songTitle:   ps.currentSong!.title,
-                songArtist:  ps.currentSong!.artist,
-                isInSession: tb.isInSession,
-                sessionCode: tb.session?.sessionCode,
-              ));
-            }
-          },
-        ),
         BlocListener<TogetherBloc, TogetherState>(
           listenWhen: (prev, curr) =>
               prev.isInSession != curr.isInSession ||
@@ -398,11 +376,11 @@ class _TogetherNotificationOverlayState
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
-                            color: _color.withOpacity(0.95),
+                            color: _color.withValues(alpha: 0.95),
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: _color.withOpacity(0.4),
+                                color: _color.withValues(alpha: 0.4),
                                 blurRadius: 20,
                                 offset: const Offset(0, 6),
                               ),

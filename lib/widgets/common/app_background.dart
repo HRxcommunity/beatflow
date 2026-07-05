@@ -43,7 +43,7 @@ class AppBackground extends StatelessWidget {
             ),
             // Dark overlay (adjustable)
             ColoredBox(
-              color: Colors.black.withOpacity(state.backgroundDimOpacity),
+              color: Colors.black.withValues(alpha: state.backgroundDimOpacity),
             ),
             // App content on top
             child,

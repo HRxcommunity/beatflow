@@ -27,16 +27,16 @@ class HRxBrowseHomeCard extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    AppTheme.accentCyan.withOpacity(0.15),
-                    const Color(0xFF1D4ED8).withOpacity(0.07),
+                    AppTheme.accentCyan.withValues(alpha: 0.15),
+                    const Color(0xFF1D4ED8).withValues(alpha: 0.07),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                    color: AppTheme.accentCyan.withOpacity(0.22), width: 1),
+                    color: AppTheme.accentCyan.withValues(alpha: 0.22), width: 1),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.accentCyan.withOpacity(0.06),
+                    color: AppTheme.accentCyan.withValues(alpha: 0.06),
                     blurRadius: 20,
                     offset: const Offset(0, 4),
                   ),
@@ -57,8 +57,8 @@ class HRxBrowseHomeCard extends StatelessWidget {
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              AppTheme.accentCyan.withOpacity(0.35),
-                              const Color(0xFF1D4ED8).withOpacity(0.25),
+                              AppTheme.accentCyan.withValues(alpha: 0.35),
+                              const Color(0xFF1D4ED8).withValues(alpha: 0.25),
                             ],
                           ),
                         ),
@@ -191,9 +191,9 @@ class _QuickBtn extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withOpacity(0.35)),
+          border: Border.all(color: color.withValues(alpha: 0.35)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -229,7 +229,7 @@ class _Pill extends StatelessWidget {
         color: AppTheme.bgSurface,
         borderRadius: BorderRadius.circular(20),
         border:
-            Border.all(color: color.withOpacity(0.25), width: 1),
+            Border.all(color: color.withValues(alpha: 0.25), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -241,7 +241,7 @@ class _Pill extends StatelessWidget {
                   fontFamily: 'Poppins',
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
-                  color: color.withOpacity(0.85))),
+                  color: color.withValues(alpha: 0.85))),
         ],
       ),
     );
