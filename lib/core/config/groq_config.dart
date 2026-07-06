@@ -9,8 +9,10 @@ import '../../services/settings_service.dart';
 // 🔑  HARDCODED FALLBACK KEY — Yahan apni default key daalo
 //     Agar user ne Settings mein key nahi daali to yeh use hogi
 // ─────────────────────────────────────────────────────────────
-const String _kFallbackGroqKey =
-    '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';
+static const String _fallbackKey = String.fromEnvironment(
+  'GROQ_FALLBACK_KEY',
+  defaultValue: '',
+);
 
 const String kGroqEndpoint = 'https://api.groq.com/openai/v1/chat/completions';
 
