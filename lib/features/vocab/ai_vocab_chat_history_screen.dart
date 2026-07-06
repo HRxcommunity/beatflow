@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 
-import '../../theme/app_theme.dart';
+import '../../core/theme/app_theme.dart';
 import '../../utils/markdown_utils.dart';
 
 // ─── Models (adjust field names to match your actual Hive models) ─────────────

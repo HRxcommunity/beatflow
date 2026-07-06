@@ -13,7 +13,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart'; // or pdfx
 
 import '../../services/groq_service.dart';
-import '../../theme/app_theme.dart';
+import '../../core/theme/app_theme.dart';
 
 // ─── State Enum ──────────────────────────────────────────────────────────────
 

@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
-import '../../theme/app_theme.dart';
+import '../../core/theme/app_theme.dart';
 
 // ─── Together Room Screen ─────────────────────────────────────────────────────
 
