@@ -195,7 +195,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
                       width: 80, height: 80,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: Colors.white.withOpacity(0.1),
                       ),
                       child: const Icon(Icons.person_rounded,
                           color: Colors.white54, size: 40),
@@ -297,7 +297,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
-                  colors: [Colors.black.withValues(alpha: 0.9), Colors.transparent],
+                  colors: [Colors.black.withOpacity(0.9), Colors.transparent],
                 ),
               ),
               child: Row(
@@ -371,8 +371,8 @@ class _CallBtn extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: active
-                  ? Colors.white.withValues(alpha: 0.15)
-                  : Colors.white.withValues(alpha: 0.05),
+                  ? Colors.white.withOpacity(0.15)
+                  : Colors.white.withOpacity(0.05),
               border: Border.all(
                 color: active ? Colors.white38 : Colors.white12,
                 width: 1.5,

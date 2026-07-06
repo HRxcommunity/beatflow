@@ -142,7 +142,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: RadialGradient(colors: [
-                            accent.withValues(alpha: 0.18),
+                            accent.withOpacity(0.18),
                             Colors.transparent,
                           ]),
                         ),
@@ -158,7 +158,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: RadialGradient(colors: [
-                          AppTheme.accentCyan.withValues(alpha: 0.10),
+                          AppTheme.accentCyan.withOpacity(0.10),
                           Colors.transparent,
                         ]),
                       ),
@@ -191,7 +191,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                             icon: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.08),
+                                color: Colors.white.withOpacity(0.08),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.keyboard_arrow_down_rounded,
@@ -221,7 +221,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                                   icon: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.08),
+                                      color: Colors.white.withOpacity(0.08),
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(Icons.more_horiz_rounded,
@@ -239,12 +239,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(colors: [
                                       accent,
-                                      AppTheme.accentCyan.withValues(alpha: 0.8),
+                                      AppTheme.accentCyan.withOpacity(0.8),
                                     ]),
                                     borderRadius: BorderRadius.circular(20),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: accent.withValues(alpha: 0.4),
+                                        color: accent.withOpacity(0.4),
                                         blurRadius: 10,
                                       ),
                                     ],
@@ -289,7 +289,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: accent.withValues(alpha: 0.12 * _glowAnim.value),
+                                  color: accent.withOpacity(0.12 * _glowAnim.value),
                                   width: 24,
                                 ),
                               ),
@@ -301,7 +301,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: accent.withValues(alpha: 0.20 * _glowAnim.value),
+                                  color: accent.withOpacity(0.20 * _glowAnim.value),
                                   width: 8,
                                 ),
                               ),
@@ -319,14 +319,14 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                                       AppTheme.bgCard,
                                       AppTheme.bgSurface,
                                       AppTheme.bgCard,
-                                      accent.withValues(alpha: 0.12),
+                                      accent.withOpacity(0.12),
                                       AppTheme.bgCard,
                                     ],
                                     stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: accent.withValues(alpha: 0.3 * _glowAnim.value),
+                                      color: accent.withOpacity(0.3 * _glowAnim.value),
                                       blurRadius: 32,
                                       spreadRadius: 4,
                                     ),
@@ -343,7 +343,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
                                           border: Border.all(
-                                            color: Colors.white.withValues(alpha: 0.04),
+                                            color: Colors.white.withOpacity(0.04),
                                             width: 1,
                                           ),
                                         ),
@@ -378,8 +378,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                                             begin: Alignment.topCenter,
                                             end: Alignment.bottomCenter,
                                             colors: [
-                                              Colors.white.withValues(alpha: 0.8),
-                                              accent.withValues(alpha: 0.6),
+                                              Colors.white.withOpacity(0.8),
+                                              accent.withOpacity(0.6),
                                             ],
                                           ),
                                         ),
@@ -551,12 +551,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                                   gradient: RadialGradient(
                                     colors: [
                                       accent,
-                                      accent.withValues(alpha: 0.7),
+                                      accent.withOpacity(0.7),
                                     ],
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: accent.withValues(alpha: 
+                                      color: accent.withOpacity(
                                           0.45 + 0.15 * _glowAnim.value),
                                       blurRadius: 24 + 8 * _glowAnim.value,
                                       spreadRadius: 2,
@@ -819,7 +819,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                             horizontal: 22, vertical: 13),
                         decoration: BoxDecoration(
                           color: isActive
-                              ? accent.withValues(alpha: 0.18)
+                              ? accent.withOpacity(0.18)
                               : AppTheme.bgSurface,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
@@ -927,7 +927,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                       child: OutlinedButton(
                         style: OutlinedButton.styleFrom(
                           backgroundColor: isActive
-                              ? accent.withValues(alpha: 0.15)
+                              ? accent.withOpacity(0.15)
                               : Colors.transparent,
                           side: BorderSide(
                             color: isActive ? accent : Colors.white24,
@@ -1059,7 +1059,7 @@ class _QueueSheet extends StatelessWidget {
                             background: Container(
                               alignment: Alignment.centerRight,
                               padding: const EdgeInsets.only(right: 20),
-                              color: Colors.redAccent.withValues(alpha: 0.15),
+                              color: Colors.redAccent.withOpacity(0.15),
                               child: const Icon(Icons.delete_outline_rounded,
                                   color: Colors.redAccent),
                             ),
@@ -1069,7 +1069,7 @@ class _QueueSheet extends StatelessWidget {
                                 width: 40, height: 40,
                                 decoration: BoxDecoration(
                                   color: isCurrent
-                                      ? accent.withValues(alpha: 0.15)
+                                      ? accent.withOpacity(0.15)
                                       : AppTheme.bgSurface,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -1163,7 +1163,7 @@ class _PremiumWaveform extends StatelessWidget {
                 end: Alignment.topCenter,
                 colors: [
                   color,
-                  color.withValues(alpha: 0.4),
+                  color.withOpacity(0.4),
                 ],
               ),
             ),
@@ -1194,7 +1194,7 @@ class _PremiumSlider extends StatelessWidget {
         inactiveTrackColor: Colors.white12,
         thumbColor: Colors.white,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-        overlayColor: accent.withValues(alpha: 0.15),
+        overlayColor: accent.withOpacity(0.15),
         trackHeight: 3,
         trackShape: const RoundedRectSliderTrackShape(),
       ),
@@ -1231,13 +1231,13 @@ class _SpeedBtn extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             decoration: BoxDecoration(
               color: isDefault
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : accent.withValues(alpha: 0.15),
+                  ? Colors.white.withOpacity(0.06)
+                  : accent.withOpacity(0.15),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: isDefault
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : accent.withValues(alpha: 0.5),
+                    ? Colors.white.withOpacity(0.08)
+                    : accent.withOpacity(0.5),
                 width: isDefault ? 1 : 1.5,
               ),
             ),
@@ -1286,9 +1286,9 @@ class _GlassIconBtn extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
+              color: Colors.white.withOpacity(0.06),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
+              border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
             ),
             child: Icon(icon, color: color, size: 20),
           ),
@@ -1361,7 +1361,7 @@ class _ParticlePainter extends CustomPainter {
       canvas.drawCircle(
         Offset(x, y),
         p.size,
-        Paint()..color = color.withValues(alpha: 0.25 * opacity),
+        Paint()..color = color.withOpacity(0.25 * opacity),
       );
     }
   }

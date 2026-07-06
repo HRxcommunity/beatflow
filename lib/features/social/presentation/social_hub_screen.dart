@@ -274,7 +274,7 @@ class _FriendsTabState extends State<_FriendsTab> {
                   borderRadius: BorderRadius.circular(14),
                   border:       Border.all(
                     color: _showSearch
-                        ? AppTheme.accentViolet.withValues(alpha: 0.6)
+                        ? AppTheme.accentViolet.withOpacity(0.6)
                         : Colors.white12,
                   ),
                 ),
@@ -427,7 +427,7 @@ class _UserTile extends StatelessWidget {
       decoration: BoxDecoration(
         color:        AppTheme.bgCard,
         borderRadius: BorderRadius.circular(14),
-        border:       Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border:       Border.all(color: Colors.white.withOpacity(0.06)),
       ),
       child: Row(
         children: [
@@ -486,7 +486,7 @@ class _UserTile extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 color: isFollowing
-                    ? Colors.white.withValues(alpha: 0.08)
+                    ? Colors.white.withOpacity(0.08)
                     : AppTheme.accentViolet,
                 border: isFollowing
                     ? Border.all(color: Colors.white24)
@@ -548,7 +548,7 @@ class _ActivityTab extends StatelessWidget {
                 color:        AppTheme.bgCard,
                 borderRadius: BorderRadius.circular(14),
                 border:       Border.all(
-                    color: Colors.white.withValues(alpha: 0.06)),
+                    color: Colors.white.withOpacity(0.06)),
               ),
               child: Row(
                 children: [
@@ -610,10 +610,10 @@ class _ActivityTab extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color:        AppTheme.accentViolet.withValues(alpha: 0.2),
+                              color:        AppTheme.accentViolet.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(8),
                               border:       Border.all(
-                                  color: AppTheme.accentViolet.withValues(alpha: 0.4)),
+                                  color: AppTheme.accentViolet.withOpacity(0.4)),
                             ),
                             child: Text(
                               '🎧 Join',

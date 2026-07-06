@@ -152,7 +152,7 @@ class _WatchTogetherSheetState extends State<WatchTogetherSheet> {
                   child: Container(
                     width: 36, height: 4,
                     decoration: BoxDecoration(
-                      color:        Colors.white.withValues(alpha: 0.2),
+                      color:        Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -168,8 +168,8 @@ class _WatchTogetherSheetState extends State<WatchTogetherSheet> {
                         width: 40, height: 40,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(colors: [
-                            const Color(0xFFFF0000).withValues(alpha: 0.25),
-                            AppTheme.accentViolet.withValues(alpha: 0.2),
+                            const Color(0xFFFF0000).withOpacity(0.25),
+                            AppTheme.accentViolet.withOpacity(0.2),
                           ]),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -291,10 +291,10 @@ class _TabButton extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color:        selected ? accent.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.05),
+            color:        selected ? accent.withOpacity(0.15) : Colors.white.withOpacity(0.05),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? accent.withValues(alpha: 0.5) : Colors.white12,
+              color: selected ? accent.withOpacity(0.5) : Colors.white12,
               width: 1.5,
             ),
           ),
@@ -359,9 +359,9 @@ class _YouTubeTab extends StatelessWidget {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color:        Colors.white.withValues(alpha: 0.06),
+                    color:        Colors.white.withOpacity(0.06),
                     borderRadius: BorderRadius.circular(12),
-                    border:       Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                    border:       Border.all(color: Colors.white.withOpacity(0.1)),
                   ),
                   child: TextField(
                     controller: ctrl,
@@ -490,7 +490,7 @@ class _YouTubeResultTile extends StatelessWidget {
       decoration: BoxDecoration(
         color:        AppTheme.bgSurface,
         borderRadius: BorderRadius.circular(14),
-        border:       Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border:       Border.all(color: Colors.white.withOpacity(0.06)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -505,7 +505,7 @@ class _YouTubeResultTile extends StatelessWidget {
               fit:         BoxFit.cover,
               placeholder: (_, __) => Container(
                 width: 80, height: 52,
-                color: Colors.white.withValues(alpha: 0.05),
+                color: Colors.white.withOpacity(0.05),
                 child: const Center(
                   child: Icon(Icons.smart_display_rounded,
                       color: Colors.white30, size: 20),
@@ -514,7 +514,7 @@ class _YouTubeResultTile extends StatelessWidget {
               errorWidget: (_, __, ___) => Container(
                 width: 80, height: 52,
                 decoration: BoxDecoration(
-                  color:        ytRed.withValues(alpha: 0.1),
+                  color:        ytRed.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.smart_display_rounded, color: ytRed, size: 20),
@@ -574,8 +574,8 @@ class _YouTubeResultTile extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(colors: [
-                        ytRed.withValues(alpha: isLoading ? 0.4 : 1.0),
-                        const Color(0xFFCC0000).withValues(alpha: isLoading ? 0.3 : 0.7),
+                        ytRed.withOpacity(isLoading ? 0.4 : 1.0),
+                        const Color(0xFFCC0000).withOpacity(isLoading ? 0.3 : 0.7),
                       ]),
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -660,19 +660,19 @@ class _LocalVideoTab extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 decoration: BoxDecoration(
-                  color:        Colors.white.withValues(alpha: 0.04),
+                  color:        Colors.white.withOpacity(0.04),
                   borderRadius: BorderRadius.circular(16),
                   border:       Border.all(
                     color: filePath != null
-                        ? accent.withValues(alpha: 0.4)
-                        : Colors.white.withValues(alpha: 0.12),
+                        ? accent.withOpacity(0.4)
+                        : Colors.white.withOpacity(0.12),
                     width: 1.5,
                   ),
                   gradient: filePath != null
                       ? LinearGradient(
                           begin: Alignment.topLeft,
                           end:   Alignment.bottomRight,
-                          colors: [accent.withValues(alpha: 0.07), Colors.transparent])
+                          colors: [accent.withOpacity(0.07), Colors.transparent])
                       : null,
                 ),
                 child: Column(
@@ -713,7 +713,7 @@ class _LocalVideoTab extends StatelessWidget {
                     Text(
                       filePath != null ? 'Tap to change' : 'MP4, MKV, MOV supported',
                       style: TextStyle(
-                          color:    Colors.white.withValues(alpha: 0.25),
+                          color:    Colors.white.withOpacity(0.25),
                           fontSize: 11),
                     ),
                   ],
@@ -728,15 +728,15 @@ class _LocalVideoTab extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color:        Colors.white.withValues(alpha: 0.03),
+                  color:        Colors.white.withOpacity(0.03),
                   borderRadius: BorderRadius.circular(12),
-                  border:       Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                  border:       Border.all(color: Colors.white.withOpacity(0.06)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(Icons.info_outline_rounded,
-                        color: accent.withValues(alpha: 0.6), size: 16),
+                        color: accent.withOpacity(0.6), size: 16),
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
@@ -828,10 +828,10 @@ class _PublicCategorySection extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color:        Colors.white.withValues(alpha: 0.04),
+            color:        Colors.white.withOpacity(0.04),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isPublic ? accent.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.08),
+              color: isPublic ? accent.withOpacity(0.4) : Colors.white.withOpacity(0.08),
             ),
           ),
           child: Row(
@@ -885,11 +885,11 @@ class _PublicCategorySection extends StatelessWidget {
                     padding:  const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color:        selected
-                          ? accent.withValues(alpha: 0.2)
-                          : Colors.white.withValues(alpha: 0.05),
+                          ? accent.withOpacity(0.2)
+                          : Colors.white.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: selected ? accent.withValues(alpha: 0.6) : Colors.white12,
+                        color: selected ? accent.withOpacity(0.6) : Colors.white12,
                       ),
                     ),
                     child: Row(

@@ -87,7 +87,7 @@ class _GameRoomScreenState extends State<GameRoomScreen>
                       center: Alignment.topCenter,
                       radius: 1.5,
                       colors: [
-                        _purple.withValues(alpha: 0.08),
+                        _purple.withOpacity(0.08),
                         Colors.transparent,
                       ],
                     ),
@@ -400,7 +400,7 @@ class _GameHeader extends StatelessWidget {
             icon: Container(
               padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: Colors.white.withOpacity(0.08),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.arrow_back_ios_rounded,
@@ -467,10 +467,10 @@ class _MiniMusicBar extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 12),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
+            color: Colors.white.withOpacity(0.06),
             borderRadius: BorderRadius.circular(12),
             border:
-                Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
+                Border.all(color: Colors.white.withOpacity(0.08), width: 1),
           ),
           child: Row(
             children: [
@@ -539,12 +539,12 @@ class _TurnIndicator extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
         color: isMyTurn
-            ? const Color(0xFF7C3AED).withValues(alpha: 0.2)
-            : Colors.white.withValues(alpha: 0.05),
+            ? const Color(0xFF7C3AED).withOpacity(0.2)
+            : Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: isMyTurn
-              ? const Color(0xFF7C3AED).withValues(alpha: 0.5)
+              ? const Color(0xFF7C3AED).withOpacity(0.5)
               : Colors.white12,
           width: 1,
         ),
@@ -597,7 +597,7 @@ class _MoveHistoryBar extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(8),
       ),
       child: ListView.separated(

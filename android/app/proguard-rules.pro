@@ -69,6 +69,9 @@
 -keep class io.flutter.plugins.webviewflutter.** { *; }
 -dontwarn io.flutter.plugins.webviewflutter.**
 
+# ─── OTA FileProvider ───────────────────────────────────────────────────────
+-keep class androidx.core.content.FileProvider { *; }
+
 # ─── Common transitive warnings ────────────────────────────────────────────
 -dontwarn javax.annotation.**
 -dontwarn org.conscrypt.**

@@ -105,4 +105,10 @@ class SettingsService {
     final s = settings..gaplessPlayback = value;
     await save(s);
   }
+
+  // ── Groq API Key ─────────────────────────────────────────────
+  Future<void> updateGroqApiKey(String key) async {
+    final s = settings..groqApiKey = key.trim();
+    await save(s);
+  }
 }

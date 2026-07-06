@@ -1,6 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════════════╗
-// ║  Study AI Service — PDF + Image → Unlimited Batched Questions       ║
-// ║  No fixed limit: 10 questions/batch, infinite batches               ║
+// ║  Study AI Service — God Level Upgrade                               ║
+// ║  PDF + Image → Unlimited Batched Questions                          ║
+// ║  + Difficulty Levels + PYQ Detection + Subject Tags                 ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 import 'dart:convert';
@@ -9,18 +10,19 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
+import '../../core/config/groq_config.dart';
+
 // ─── API Config ──────────────────────────────────────────────────────
-const String _kGroqApiKey   = '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';
 const String _kGroqEndpoint = 'https://api.groq.com/openai/v1/chat/completions';
 const String _kVisionModel  = 'meta-llama/llama-4-scout-17b-16e-instruct';
 const String _kTextModel    = 'llama-3.3-70b-versatile';
 
 // ─── Batch config ─────────────────────────────────────────────────────
-const int _kBatchSize    = 10;   // questions per API call
-const int _kPdfPageBatch = 5;    // PDF pages per batch
-const int _kMaxPdfChars  = 5000; // chars extracted per batch
+const int _kBatchSize    = 10;
+const int _kPdfPageBatch = 5;
+const int _kMaxPdfChars  = 5000;
 
-// ─── Image round focus areas (for variety across rounds) ────────────
+// ─── Image round focus areas ──────────────────────────────────────────
 const List<String> _kRoundFocus = [
   'main concepts, key terms aur definitions',
   'specific facts, dates, numbers aur statistics',
@@ -29,29 +31,93 @@ const List<String> _kRoundFocus = [
   'advanced, analytical aur tricky concepts',
 ];
 
-// ─── Model ────────────────────────────────────────────────────────────
+// ─── Difficulty ───────────────────────────────────────────────────────
+enum QuestionDifficulty { easy, medium, hard }
 
+extension QuestionDifficultyExt on QuestionDifficulty {
+  String get difficultyPrompt {
+    switch (this) {
+      case QuestionDifficulty.easy:
+        return 'Simple aur seedhe facts-based questions. Beginner level. '
+            'Direct answer. No tricky options.';
+      case QuestionDifficulty.medium:
+        return 'Moderate level. Mix of factual aur conceptual questions. '
+            'Options mein 2 plausible distractors.';
+      case QuestionDifficulty.hard:
+        return 'Advanced, analytical, tricky questions. Apply-and-think level. '
+            'All 4 options plausible. Conceptual depth required.';
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case QuestionDifficulty.easy:   return 'Easy';
+      case QuestionDifficulty.medium: return 'Medium';
+      case QuestionDifficulty.hard:   return 'Hard';
+    }
+  }
+
+  String get emoji {
+    switch (this) {
+      case QuestionDifficulty.easy:   return '🟢';
+      case QuestionDifficulty.medium: return '🟡';
+      case QuestionDifficulty.hard:   return '🔴';
+    }
+  }
+}
+
+// ─── Model ────────────────────────────────────────────────────────────
 class StudyQuestion {
   final String question;
   final List<String> options;
   final int correctIndex;
   final String explanation;
+  // PYQ & subject metadata
+  final String? pyqInfo;    // e.g. "SSC CGL 2023, SSC CHSL 2022"
+  final String? pyqCount;   // e.g. "3 baar poocha gaya"
+  final String? subject;    // e.g. "History", "Polity", "Maths"
+  final String? topicTag;   // e.g. "Mughal Empire", "Percentage"
 
   const StudyQuestion({
     required this.question,
     required this.options,
     required this.correctIndex,
     required this.explanation,
+    this.pyqInfo,
+    this.pyqCount,
+    this.subject,
+    this.topicTag,
   });
+
+  Map<String, dynamic> toJson() => {
+    'question':      question,
+    'options':       options,
+    'correct_index': correctIndex,
+    'explanation':   explanation,
+    'pyq_info':      pyqInfo,
+    'pyq_count':     pyqCount,
+    'subject':       subject,
+    'topic_tag':     topicTag,
+  };
+
+  factory StudyQuestion.fromJson(Map<String, dynamic> m) => StudyQuestion(
+    question:     (m['question'] as String? ?? '').trim(),
+    options:      (m['options'] as List).cast<String>(),
+    correctIndex: ((m['correct_index'] as num?)?.toInt() ?? 0).clamp(0, 3),
+    explanation:  (m['explanation'] as String? ?? '').trim(),
+    pyqInfo:      m['pyq_info']  as String?,
+    pyqCount:     m['pyq_count'] as String?,
+    subject:      m['subject']   as String?,
+    topicTag:     m['topic_tag'] as String?,
+  );
 }
 
 // ─── Service ──────────────────────────────────────────────────────────
-
 class StudyAiService {
   StudyAiService._();
   static final instance = StudyAiService._();
 
-  // ── Get total PDF page count (cheap — no text extraction) ─────────
+  // ── Get total PDF page count ──────────────────────────────────────
   Future<int> getPdfPageCount(File pdfFile) async {
     final bytes = await pdfFile.readAsBytes();
     return compute(_countPages, bytes);
@@ -68,26 +134,27 @@ class StudyAiService {
     }
   }
 
-  // ── Batch from Image (round = 1,2,3... for variety) ──────────────
+  // ── Batch from Image ──────────────────────────────────────────────
   Future<List<StudyQuestion>> generateBatchFromImage(
     File imageFile, {
     int round = 1,
+    QuestionDifficulty difficulty = QuestionDifficulty.medium,
   }) async {
-    _checkApiKey();
     final bytes = await imageFile.readAsBytes();
     final b64   = base64Encode(bytes);
     final ext   = imageFile.path.split('.').last.toLowerCase();
     final mime  = ext == 'png' ? 'image/png' : 'image/jpeg';
     final focus = _kRoundFocus[(round - 1).clamp(0, _kRoundFocus.length - 1)];
-    return _callVisionApi(b64, mime, focus: focus);
+    final result = await _callVisionApi(b64, mime, focus: focus, difficulty: difficulty);
+    return result;
   }
 
-  // ── Batch from PDF (startPage = 0, 5, 10 ...) ────────────────────
+  // ── Batch from PDF ────────────────────────────────────────────────
   Future<List<StudyQuestion>> generateBatchFromPdf(
     File pdfFile, {
     required int startPage,
+    QuestionDifficulty difficulty = QuestionDifficulty.medium,
   }) async {
-    _checkApiKey();
     final bytes = await pdfFile.readAsBytes();
     final text  = await compute(_extractBatch, {
       'bytes':     bytes,
@@ -101,7 +168,7 @@ class StudyAiService {
         'Scanned PDF hai toh Camera option use karo.',
       );
     }
-    return _callTextApi(text, startPage: startPage);
+    return _callTextApi(text, startPage: startPage, difficulty: difficulty);
   }
 
   // ── PDF text extraction isolate ───────────────────────────────────
@@ -116,11 +183,8 @@ class StudyAiService {
       final totalPages = doc.pages.count;
       final endPage    = (startPage + pageCount - 1).clamp(0, totalPages - 1);
       final buf        = StringBuffer();
-
       for (int i = startPage; i <= endPage; i++) {
-        buf.writeln(
-          extractor.extractText(startPageIndex: i, endPageIndex: i),
-        );
+        buf.writeln(extractor.extractText(startPageIndex: i, endPageIndex: i));
         if (buf.length > maxChars) break;
       }
       doc.dispose();
@@ -134,13 +198,16 @@ class StudyAiService {
 
   // ── Vision API ────────────────────────────────────────────────────
   Future<List<StudyQuestion>> _callVisionApi(
-    String base64,
+    String base64Data,
     String mime, {
     String focus = 'main concepts',
+    QuestionDifficulty difficulty = QuestionDifficulty.medium,
   }) async {
     final prompt = '''
 Is image mein jo educational content hai usse dhyan se padho.
 Focus: $focus ke baare mein $_kBatchSize multiple choice questions banao.
+
+DIFFICULTY LEVEL: ${difficulty.difficultyPrompt}
 
 SIRF ek valid JSON array return karo — koi extra text, backticks ya explanation nahi.
 
@@ -150,7 +217,11 @@ Format:
     "question": "Question text (Hindi/English/Hinglish)",
     "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
     "correct_index": 0,
-    "explanation": "Brief explanation"
+    "explanation": "Brief explanation",
+    "pyq_info": "SSC CGL 2022, RRB NTPC 2023 mein poocha gaya",
+    "pyq_count": "2-3 baar",
+    "subject": "History",
+    "topic_tag": "Mughal Empire"
   }
 ]
 
@@ -158,8 +229,12 @@ Rules:
 - options mein A) B) prefix bilkul mat lagao — sirf text
 - correct_index must be 0, 1, 2, ya 3
 - Exactly $_kBatchSize questions
-- Educational aur meaningful questions
-- Agar image mein text nahi: [{"question":"Image mein text nahi mila","options":["Clear photo lo","Better lighting use karo","Text wali page lo","Dobara try karo"],"correct_index":0,"explanation":"Clear photo se better results milte hain"}]
+- IMPORTANT — Har question ke liye:
+  * "pyq_info": Agar yeh topic SSC CGL, SSC CHSL, SSC MTS, SSC CPO, UPSC, RRB NTPC, RRB Group D, UP Police, IBPS, SBI PO, Delhi Police ya kisi bhi government exam mein aaya ho toh fill karo. Nahi pata toh null rakho.
+  * "pyq_count": Kitni baar approximately government exams mein aaya (e.g. "3-4 baar"). Null if unknown.
+  * "subject": ONE of: History / Geography / Polity / Economics / Science / Maths / English / Reasoning / Computer / General Awareness / Other
+  * "topic_tag": Specific topic (e.g. "Mughal Empire", "Simple Interest", "Photosynthesis")
+- Agar image mein text nahi: [{"question":"Image mein text nahi mila","options":["Clear photo lo","Better lighting use karo","Text wali page lo","Dobara try karo"],"correct_index":0,"explanation":"Clear photo se better results milte hain","pyq_info":null,"pyq_count":null,"subject":"Other","topic_tag":"Image Quality"}]
 ''';
 
     final body = jsonEncode({
@@ -168,26 +243,24 @@ Rules:
         {
           'role': 'user',
           'content': [
-            {'type': 'text',      'text': prompt},
-            {'type': 'image_url', 'image_url': {'url': 'data:$mime;base64,$base64'}},
+            {'type': 'text', 'text': prompt},
+            {'type': 'image_url', 'image_url': {'url': 'data:$mime;base64,$base64Data'}},
           ],
         }
       ],
-      'max_tokens': 3000,
+      'max_tokens': 3500,
       'temperature': 0.3,
     });
 
     return _handleResponse(
-      await http
-          .post(
-            Uri.parse(_kGroqEndpoint),
-            headers: {
-              'Content-Type':  'application/json',
-              'Authorization': 'Bearer $_kGroqApiKey',
-            },
-            body: body,
-          )
-          .timeout(const Duration(seconds: 60)),
+      await http.post(
+        Uri.parse(_kGroqEndpoint),
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': 'Bearer ${GroqConfig.instance.effectiveKey}',
+        },
+        body: body,
+      ).timeout(const Duration(seconds: 60)),
     );
   }
 
@@ -195,11 +268,13 @@ Rules:
   Future<List<StudyQuestion>> _callTextApi(
     String text, {
     int startPage = 0,
+    QuestionDifficulty difficulty = QuestionDifficulty.medium,
   }) async {
     final endPage = startPage + _kPdfPageBatch;
     final prompt  = '''
-Neeche diye gaye educational content (Pages ${startPage + 1}–$endPage) se \
-$_kBatchSize multiple choice questions banao.
+Neeche diye gaye educational content (Pages ${startPage + 1}–$endPage) se $_kBatchSize multiple choice questions banao.
+
+DIFFICULTY LEVEL: ${difficulty.difficultyPrompt}
 
 Content:
 ---
@@ -214,11 +289,20 @@ Format:
     "question": "Question",
     "options": ["A", "B", "C", "D"],
     "correct_index": 0,
-    "explanation": "Why this is correct"
+    "explanation": "Why this is correct",
+    "pyq_info": "SSC CGL 2022, RRB NTPC 2023 mein poocha gaya",
+    "pyq_count": "2-3 baar",
+    "subject": "History",
+    "topic_tag": "Mughal Empire"
   }
 ]
 
 Rules: No A) B) prefix. correct_index 0-3. Exactly $_kBatchSize questions.
+IMPORTANT — Har question ke liye:
+- "pyq_info": Agar yeh topic SSC CGL, SSC CHSL, UPSC, RRB NTPC, IBPS, SBI PO ya kisi bhi government exam mein aaya ho toh fill karo. Nahi pata toh null.
+- "pyq_count": Kitni baar approximately aaya (e.g. "3-4 baar"). Null if unknown.
+- "subject": ONE of: History / Geography / Polity / Economics / Science / Maths / English / Reasoning / Computer / General Awareness / Other
+- "topic_tag": Specific topic tag
 ''';
 
     final body = jsonEncode({
@@ -226,21 +310,19 @@ Rules: No A) B) prefix. correct_index 0-3. Exactly $_kBatchSize questions.
       'messages': [
         {'role': 'user', 'content': prompt},
       ],
-      'max_tokens': 3000,
+      'max_tokens': 3500,
       'temperature': 0.3,
     });
 
     return _handleResponse(
-      await http
-          .post(
-            Uri.parse(_kGroqEndpoint),
-            headers: {
-              'Content-Type':  'application/json',
-              'Authorization': 'Bearer $_kGroqApiKey',
-            },
-            body: body,
-          )
-          .timeout(const Duration(seconds: 60)),
+      await http.post(
+        Uri.parse(_kGroqEndpoint),
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': 'Bearer ${GroqConfig.instance.effectiveKey}',
+        },
+        body: body,
+      ).timeout(const Duration(seconds: 60)),
     );
   }
 
@@ -264,7 +346,7 @@ Rules: No A) B) prefix. correct_index 0-3. Exactly $_kBatchSize questions.
 
   // ── JSON parsing with repair ──────────────────────────────────────
   List<StudyQuestion> _parseQuestions(String raw) {
-    var c = raw
+    final c = raw
         .replaceAll(RegExp(r'```json\s*'), '')
         .replaceAll(RegExp(r'```\s*'), '')
         .trim();
@@ -303,6 +385,10 @@ Rules: No A) B) prefix. correct_index 0-3. Exactly $_kBatchSize questions.
           options:      opts.map((o) => o.trim()).toList(),
           correctIndex: idx,
           explanation:  (m['explanation'] as String? ?? '').trim(),
+          pyqInfo:      _nullOrString(m['pyq_info']),
+          pyqCount:     _nullOrString(m['pyq_count']),
+          subject:      _nullOrString(m['subject']),
+          topicTag:     _nullOrString(m['topic_tag']),
         ));
       } catch (_) {
         continue;
@@ -315,13 +401,9 @@ Rules: No A) B) prefix. correct_index 0-3. Exactly $_kBatchSize questions.
     return questions;
   }
 
-  void _checkApiKey() {
-    if (_kGroqApiKey == 'YOUR_GROQ_API_KEY_HERE') {
-      throw Exception(
-        '⚠️ Groq API key set nahi ki!\n'
-        'study_ai_service.dart mein _kGroqApiKey daalo.\n'
-        'Free key: https://console.groq.com',
-      );
-    }
+  String? _nullOrString(dynamic v) {
+    if (v == null || v == 'null' || (v is String && v.trim().isEmpty)) return null;
+    return v as String?;
   }
+
 }

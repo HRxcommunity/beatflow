@@ -6,12 +6,12 @@
 // Features:
 //   • Current → New version chips
 //   • Scrollable changelog
-//   • Direct APK download via url_launcher
+//   • In-app APK download via OtaDownloadManager (floating bubble UI)
 //   • isRequired = true  → "Maybe Later" button hide ho jata hai
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../services/update_service.dart';
+import 'ota_download_manager.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -42,7 +42,6 @@ class _UpdateDialog extends StatefulWidget {
 }
 
 class _UpdateDialogState extends State<_UpdateDialog> {
-  bool _downloading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -64,12 +63,12 @@ class _UpdateDialogState extends State<_UpdateDialog> {
             ),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: cs.primary.withValues(alpha: 0.45),
+              color: cs.primary.withOpacity(0.45),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: cs.primary.withValues(alpha: 0.28),
+                color: cs.primary.withOpacity(0.28),
                 blurRadius: 48,
                 spreadRadius: 2,
               ),
@@ -97,8 +96,8 @@ class _UpdateDialogState extends State<_UpdateDialog> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            cs.primary.withValues(alpha: 0.22),
-            const Color(0xFF00D4FF).withValues(alpha: 0.08),
+            cs.primary.withOpacity(0.22),
+            const Color(0xFF00D4FF).withOpacity(0.08),
           ],
         ),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -110,9 +109,9 @@ class _UpdateDialogState extends State<_UpdateDialog> {
           Container(
             padding: const EdgeInsets.all(11),
             decoration: BoxDecoration(
-              color: cs.primary.withValues(alpha: 0.18),
+              color: cs.primary.withOpacity(0.18),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
+              border: Border.all(color: cs.primary.withOpacity(0.3)),
             ),
             child: Icon(
               Icons.system_update_alt_rounded,
@@ -142,14 +141,14 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                   children: [
                     _VersionChip(
                       label: 'v${widget.info.currentVersion}',
-                      bg: Colors.white.withValues(alpha: 0.12),
+                      bg: Colors.white.withOpacity(0.12),
                       fg: Colors.white70,
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       child: Icon(
                         Icons.arrow_forward_rounded,
-                        color: cs.primary.withValues(alpha: 0.7),
+                        color: cs.primary.withOpacity(0.7),
                         size: 14,
                       ),
                     ),
@@ -191,9 +190,9 @@ class _UpdateDialogState extends State<_UpdateDialog> {
             constraints: const BoxConstraints(maxHeight: 160),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.04),
+              color: Colors.white.withOpacity(0.04),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              border: Border.all(color: Colors.white.withOpacity(0.08)),
             ),
             child: SingleChildScrollView(
               child: Text(
@@ -220,22 +219,13 @@ class _UpdateDialogState extends State<_UpdateDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Download button
+          // Download button — dialog closes immediately, floating bubble takes over
           FilledButton.icon(
-            onPressed: _downloading ? null : _onDownload,
-            icon: _downloading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.download_rounded, size: 20),
-            label: Text(
-              _downloading ? 'Opening...' : 'Download Update',
-              style: const TextStyle(
+            onPressed: _onDownload,
+            icon: const Icon(Icons.download_rounded, size: 20),
+            label: const Text(
+              'Download Update',
+              style: TextStyle(
                 fontFamily: 'Poppins',
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
@@ -243,7 +233,6 @@ class _UpdateDialogState extends State<_UpdateDialog> {
             ),
             style: FilledButton.styleFrom(
               backgroundColor: cs.primary,
-              disabledBackgroundColor: cs.primary.withValues(alpha: 0.5),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14)),
@@ -273,33 +262,29 @@ class _UpdateDialogState extends State<_UpdateDialog> {
   // ── Actions ──────────────────────────────────────────────────────────────
 
   Future<void> _onDownload() async {
-    setState(() => _downloading = true);
-    try {
-      final uri = Uri.tryParse(widget.info.downloadUrl);
-      if (uri == null) {
-        throw Exception('Invalid download URL');
-      }
-      // BUG-UPD01 FIX: Removed canLaunchUrl check — it returns false on Android 11+
-      // for https:// URLs unless <queries> intent is declared in AndroidManifest.
-      // Direct launchUrl works correctly without the pre-check.
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-
-      if (mounted && !widget.info.isRequired) {
-        Navigator.of(context).pop();
-      }
-    } catch (e) {
-      debugPrint('[UpdateDialog] launch failed: $e');
+    final url = widget.info.downloadUrl;
+    if (url.isEmpty ||
+        (!url.startsWith('http') && !url.startsWith('https'))) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Browser open nahi hua. Manually check karo: github.com'),
+            content: Text(
+                'Invalid APK URL. GitHub release mein APK attach hai?'),
             duration: Duration(seconds: 4),
           ),
         );
       }
-    } finally {
-      if (mounted) setState(() => _downloading = false);
+      return;
     }
+
+    // Start in-app download — non-blocking; floating bubble takes over UI
+    OtaDownloadManager.instance.startDownload(
+      url:     url,
+      version: widget.info.latestVersion,
+    );
+
+    // Close dialog immediately
+    if (mounted) Navigator.of(context).pop();
   }
 }
 

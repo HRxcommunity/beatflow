@@ -19,9 +19,12 @@ import 'features/together/bloc/together_bloc.dart';
 import 'features/together/bloc/game_bloc.dart';
 import 'features/together/presentation/together_sync_listener.dart';
 import 'features/ai_vocab/vocab_notif_service.dart';
+import 'features/downloader/download_history_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'features/social/bloc/social_bloc.dart';
 import 'features/social/services/social_service.dart';
 import 'widgets/common/app_background.dart';
+import 'features/update/ota_download_overlay.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,6 +56,13 @@ void main() async {
     debugPrint('[BeatFlow] ServiceLocator init failed: $e');
   }
 
+  // Init download history — Hive box for persisting download records
+  try {
+    await DownloadHistoryService.instance.init();
+  } catch (e) {
+    debugPrint('[BeatFlow] DownloadHistoryService init failed: $e');
+  }
+
   // Init vocab notification service
   // BUG-VN01 FIX: VocabNotifService.init() was never called, so:
   //   • flutter_local_notifications plugin was never initialized
@@ -63,6 +73,38 @@ void main() async {
     await VocabNotifService.instance.init();
   } catch (e) {
     debugPrint('[BeatFlow] VocabNotifService init failed: $e');
+  }
+
+  // Register 'downloader' notification channel alongside 'vocab_learning'
+  // VocabNotifService.init() above has already called plugin.initialize(),
+  // so we only need to create the channel here.
+  try {
+    await FlutterLocalNotificationsPlugin()
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(const AndroidNotificationChannel(
+      'downloader',
+      'Downloads',
+      description: 'BeatFlow download complete notifications',
+      importance : Importance.high,
+    ));
+  } catch (e) {
+    debugPrint('[BeatFlow] Downloader notif channel init failed: $e');
+  }
+
+  // Register 'ota_download' notification channel for in-app update progress
+  try {
+    await FlutterLocalNotificationsPlugin()
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(const AndroidNotificationChannel(
+      'ota_download',
+      'OTA Updates',
+      description: 'BeatFlow update download progress',
+      importance: Importance.low, // low = no sound, shows in shade
+    ));
+  } catch (e) {
+    debugPrint('[BeatFlow] OTA notif channel init failed: $e');
   }
 
   runApp(const BeatFlowApp());
@@ -359,7 +401,7 @@ class _TogetherNotificationOverlayState
         textDirection: TextDirection.ltr,
         child: Stack(
           children: [
-            widget.child,
+            OtaDownloadOverlay(child: widget.child),  // floating OTA bubble
             if (_visible)
               Positioned(
                 top: 0,
@@ -376,11 +418,11 @@ class _TogetherNotificationOverlayState
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
-                            color: _color.withValues(alpha: 0.95),
+                            color: _color.withOpacity(0.95),
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: _color.withValues(alpha: 0.4),
+                                color: _color.withOpacity(0.4),
                                 blurRadius: 20,
                                 offset: const Offset(0, 6),
                               ),

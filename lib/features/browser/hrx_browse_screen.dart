@@ -586,7 +586,7 @@ class _HRxBrowseScreenState extends State<HRxBrowseScreen> {
             Positioned.fill(
               child: IgnorePointer(
                 child: Container(
-                    color: AppTheme.accentViolet.withValues(alpha: 0.04)),
+                    color: AppTheme.accentViolet.withOpacity(0.04)),
               ),
             ),
 
@@ -601,11 +601,11 @@ class _HRxBrowseScreenState extends State<HRxBrowseScreen> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentViolet.withValues(alpha: 0.88),
+                    color: AppTheme.accentViolet.withOpacity(0.88),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                          color: AppTheme.accentViolet.withValues(alpha: 0.3),
+                          color: AppTheme.accentViolet.withOpacity(0.3),
                           blurRadius: 12),
                     ],
                   ),
@@ -635,7 +635,7 @@ class _HRxBrowseScreenState extends State<HRxBrowseScreen> {
             bottom: 16,
             right: _canFwd ? 16 : -60,
             child: FloatingActionButton.small(
-              backgroundColor: AppTheme.bgCard.withValues(alpha: 0.95),
+              backgroundColor: AppTheme.bgCard.withOpacity(0.95),
               elevation: 4,
               onPressed: _canFwd ? () => _wc.goForward() : null,
               tooltip: 'Forward',
@@ -684,8 +684,8 @@ class _UrlBarWidget extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isPrivate
-                ? AppTheme.accentViolet.withValues(alpha: 0.5)
-                : Colors.white.withValues(alpha: 0.07),
+                ? AppTheme.accentViolet.withOpacity(0.5)
+                : Colors.white.withOpacity(0.07),
           ),
         ),
         child: Row(
@@ -838,12 +838,12 @@ class _Toggle extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: active ? color.withValues(alpha: 0.12) : AppTheme.bgSurface,
+            color: active ? color.withOpacity(0.12) : AppTheme.bgSurface,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: active
-                  ? color.withValues(alpha: 0.45)
-                  : Colors.white.withValues(alpha: 0.06),
+                  ? color.withOpacity(0.45)
+                  : Colors.white.withOpacity(0.06),
             ),
           ),
           child: Column(children: [

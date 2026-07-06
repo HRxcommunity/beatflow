@@ -47,7 +47,7 @@ class LudoBoardWidget extends StatelessWidget {
           margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
+            color: Colors.white.withOpacity(0.06),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -215,10 +215,10 @@ class _LudoBoard extends StatelessWidget {
           width: size * 0.08, height: size * 0.08,
           decoration: BoxDecoration(
             color: isSafe
-                ? _safe.withValues(alpha: 0.2)
-                : _track.withValues(alpha: 0.8),
+                ? _safe.withOpacity(0.2)
+                : _track.withOpacity(0.8),
             border: Border.all(
-              color: isSafe ? _safe.withValues(alpha: 0.5) : Colors.white12,
+              color: isSafe ? _safe.withOpacity(0.5) : Colors.white12,
               width: isSafe ? 1.5 : 0.5,
             ),
             borderRadius: BorderRadius.circular(4),
@@ -255,7 +255,7 @@ class _LudoBoard extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 1.5),
                 boxShadow: canTap
-                    ? [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 8)]
+                    ? [BoxShadow(color: color.withOpacity(0.6), blurRadius: 8)]
                     : null,
               ),
               child: Center(
@@ -333,12 +333,12 @@ class _HomeArea extends StatelessWidget {
     return Container(
       width: size, height: size,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
+        color: color.withOpacity(0.15),
         borderRadius: BorderRadius.only(
           topLeft:     label == 'RED'  ? const Radius.circular(12) : Radius.zero,
           bottomRight: label == 'BLUE' ? const Radius.circular(12) : Radius.zero,
         ),
-        border: Border.all(color: color.withValues(alpha: 0.4), width: 1.5),
+        border: Border.all(color: color.withOpacity(0.4), width: 1.5),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -371,7 +371,7 @@ class _HomeArea extends StatelessWidget {
                   child: Container(
                     decoration: BoxDecoration(
                       color: atHome
-                          ? color.withValues(alpha: 0.8)
+                          ? color.withOpacity(0.8)
                           : finished
                               ? const Color(0xFF22C55E)
                               : Colors.transparent,
@@ -381,7 +381,7 @@ class _HomeArea extends StatelessWidget {
                         width: canMove && atHome ? 2.0 : 1.0,
                       ),
                       boxShadow: canMove && atHome
-                          ? [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 6)]
+                          ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 6)]
                           : null,
                     ),
                     child: Center(
@@ -426,7 +426,7 @@ class _DiceFace extends StatelessWidget {
       decoration: BoxDecoration(
         color: active
             ? const Color(0xFF7C3AED)
-            : Colors.white.withValues(alpha: 0.1),
+            : Colors.white.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: active

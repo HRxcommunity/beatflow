@@ -147,7 +147,7 @@ class _LandingScreen extends StatelessWidget {
     final scaffold = Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: AppTheme.bgDeep.withValues(alpha: 0.85),
+        backgroundColor: AppTheme.bgDeep.withOpacity(0.85),
         title: const Text('BeatFlow Together'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white70),
@@ -182,7 +182,7 @@ class _LandingScreen extends StatelessWidget {
                   color: AppTheme.textPrimary,
                   letterSpacing: 0.2,
                   shadows: [
-                    Shadow(color: accent.withValues(alpha: 0.5), blurRadius: 20)
+                    Shadow(color: accent.withOpacity(0.5), blurRadius: 20)
                   ],
                 ),
                 textAlign: TextAlign.center,
@@ -223,8 +223,8 @@ class _LandingScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                          color: AppTheme.accentCyan.withValues(alpha: 0.4)),
-                      color: AppTheme.accentCyan.withValues(alpha: 0.08),
+                          color: AppTheme.accentCyan.withOpacity(0.4)),
+                      color: AppTheme.accentCyan.withOpacity(0.08),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -289,7 +289,7 @@ class _HeroIllustration extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(colors: [
-                accent.withValues(alpha: 0.12),
+                accent.withOpacity(0.12),
                 Colors.transparent,
               ]),
             ),
@@ -300,7 +300,7 @@ class _HeroIllustration extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: accent.withValues(alpha: 0.18),
+                color: accent.withOpacity(0.18),
                 width: 1.5,
               ),
             ),
@@ -314,14 +314,14 @@ class _HeroIllustration extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  accent.withValues(alpha: 0.3),
-                  AppTheme.accentCyan.withValues(alpha: 0.2),
+                  accent.withOpacity(0.3),
+                  AppTheme.accentCyan.withOpacity(0.2),
                 ],
               ),
-              border: Border.all(color: accent.withValues(alpha: 0.4), width: 2),
+              border: Border.all(color: accent.withOpacity(0.4), width: 2),
               boxShadow: [
                 BoxShadow(
-                    color: accent.withValues(alpha: 0.3),
+                    color: accent.withOpacity(0.3),
                     blurRadius: 30,
                     spreadRadius: 4),
               ],
@@ -358,9 +358,9 @@ class _PersonBubble extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [accent.withValues(alpha: 0.5), accent.withValues(alpha: 0.2)],
+          colors: [accent.withOpacity(0.5), accent.withOpacity(0.2)],
         ),
-        border: Border.all(color: accent.withValues(alpha: 0.6), width: 1.5),
+        border: Border.all(color: accent.withOpacity(0.6), width: 1.5),
       ),
       child: Icon(Icons.person_rounded, size: 20, color: accent),
     );
@@ -381,9 +381,9 @@ class _EditableNameChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: Colors.white.withOpacity(0.05),
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
+          border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -413,7 +413,7 @@ class _EditableNameChip extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            Icon(Icons.edit_rounded, color: accent.withValues(alpha: 0.7), size: 14),
+            Icon(Icons.edit_rounded, color: accent.withOpacity(0.7), size: 14),
             const SizedBox(width: 4),
             Container(
               width: 7, height: 7,
@@ -455,15 +455,15 @@ class _EditableNameChip extends StatelessWidget {
             hintText: 'Enter your name...',
             hintStyle: const TextStyle(color: AppTheme.textSecondary),
             filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.05),
+            fillColor: Colors.white.withOpacity(0.05),
             counterText: '',
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -522,7 +522,7 @@ class _SignInCardState extends State<_SignInCard> {
       decoration: BoxDecoration(
         color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07), width: 1),
+        border: Border.all(color: Colors.white.withOpacity(0.07), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -550,16 +550,16 @@ class _SignInCardState extends State<_SignInCard> {
               hintStyle: const TextStyle(
                   color: AppTheme.textSecondary, fontSize: 14),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.05),
+              fillColor: Colors.white.withOpacity(0.05),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.1), width: 1),
+                    color: Colors.white.withOpacity(0.1), width: 1),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.1), width: 1),
+                    color: Colors.white.withOpacity(0.1), width: 1),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -611,14 +611,14 @@ class _CreateSessionButton extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
               colors: isLoading
-                  ? [accent.withValues(alpha: 0.5), accent.withValues(alpha: 0.35)]
-                  : [accent, accent.withValues(alpha: 0.75)]),
+                  ? [accent.withOpacity(0.5), accent.withOpacity(0.35)]
+                  : [accent, accent.withOpacity(0.75)]),
           borderRadius: BorderRadius.circular(18),
           boxShadow: isLoading
               ? []
               : [
                   BoxShadow(
-                    color: accent.withValues(alpha: 0.35),
+                    color: accent.withOpacity(0.35),
                     blurRadius: 20,
                     offset: const Offset(0, 6),
                   ),
@@ -707,9 +707,9 @@ class _JoinSessionButton extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 18),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: Colors.white.withOpacity(0.05),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: accent.withValues(alpha: 0.4), width: 1.5),
+          border: Border.all(color: accent.withOpacity(0.4), width: 1.5),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -762,13 +762,13 @@ class _WatchTogetherButton extends StatelessWidget {
             begin: Alignment.topLeft,
             end:   Alignment.bottomRight,
             colors: [
-              const Color(0xFFFF0000).withValues(alpha: 0.15),
-              AppTheme.accentViolet.withValues(alpha: 0.10),
+              const Color(0xFFFF0000).withOpacity(0.15),
+              AppTheme.accentViolet.withOpacity(0.10),
             ],
           ),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: const Color(0xFFFF0000).withValues(alpha: 0.4),
+            color: const Color(0xFFFF0000).withOpacity(0.4),
             width: 1.5,
           ),
         ),
@@ -818,7 +818,7 @@ class _HowItWorksCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 1),
+        border: Border.all(color: Colors.white.withOpacity(0.06), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -843,7 +843,7 @@ class _HowItWorksCard extends StatelessWidget {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.12),
+                      color: accent.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(icon, size: 16, color: accent),
@@ -909,7 +909,7 @@ class _CreateSessionSheetState extends State<_CreateSessionSheet> {
       decoration: BoxDecoration(
         color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
+        border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -920,7 +920,7 @@ class _CreateSessionSheetState extends State<_CreateSessionSheet> {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
+                color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -933,7 +933,7 @@ class _CreateSessionSheetState extends State<_CreateSessionSheet> {
               fontWeight: FontWeight.w700,
               color: AppTheme.textPrimary,
               shadows: [
-                Shadow(color: accent.withValues(alpha: 0.4), blurRadius: 12)
+                Shadow(color: accent.withOpacity(0.4), blurRadius: 12)
               ],
             ),
           ),
@@ -947,10 +947,10 @@ class _CreateSessionSheetState extends State<_CreateSessionSheet> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: Colors.white.withOpacity(0.05),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.06), width: 1),
+                  color: Colors.white.withOpacity(0.06), width: 1),
             ),
             child: Row(
               children: [
@@ -960,7 +960,7 @@ class _CreateSessionSheetState extends State<_CreateSessionSheet> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
                     gradient: LinearGradient(colors: [
-                      accent.withValues(alpha: 0.3),
+                      accent.withOpacity(0.3),
                       AppTheme.bgSurface,
                     ]),
                   ),
@@ -1001,12 +1001,12 @@ class _CreateSessionSheetState extends State<_CreateSessionSheet> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.04),
+              color: Colors.white.withOpacity(0.04),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: _isPublic
-                    ? accent.withValues(alpha: 0.4)
-                    : Colors.white.withValues(alpha: 0.08),
+                    ? accent.withOpacity(0.4)
+                    : Colors.white.withOpacity(0.08),
               ),
             ),
             child: Row(
@@ -1071,12 +1071,12 @@ class _CreateSessionSheetState extends State<_CreateSessionSheet> {
                           horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
                         color:        selected
-                            ? accent.withValues(alpha: 0.2)
-                            : Colors.white.withValues(alpha: 0.05),
+                            ? accent.withOpacity(0.2)
+                            : Colors.white.withOpacity(0.05),
                         borderRadius: BorderRadius.circular(20),
                         border:       Border.all(
                           color: selected
-                              ? accent.withValues(alpha: 0.6)
+                              ? accent.withOpacity(0.6)
                               : Colors.white12,
                         ),
                       ),
@@ -1189,7 +1189,7 @@ class _JoinSessionSheetState extends State<_JoinSessionSheet> {
           color: AppTheme.bgCard,
           borderRadius: BorderRadius.circular(24),
           border:
-              Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
+              Border.all(color: Colors.white.withOpacity(0.08), width: 1),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1200,7 +1200,7 @@ class _JoinSessionSheetState extends State<_JoinSessionSheet> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1214,7 +1214,7 @@ class _JoinSessionSheetState extends State<_JoinSessionSheet> {
                 color: AppTheme.textPrimary,
                 shadows: [
                   Shadow(
-                      color: widget.accent.withValues(alpha: 0.4),
+                      color: widget.accent.withOpacity(0.4),
                       blurRadius: 12)
                 ],
               ),
@@ -1240,22 +1240,22 @@ class _JoinSessionSheetState extends State<_JoinSessionSheet> {
               decoration: InputDecoration(
                 hintText: 'XXXXXX',
                 hintStyle: TextStyle(
-                  color: AppTheme.textSecondary.withValues(alpha: 0.4),
+                  color: AppTheme.textSecondary.withOpacity(0.4),
                   fontSize: 22,
                   letterSpacing: 6,
                 ),
                 counterText: '',
                 filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.05),
+                fillColor: Colors.white.withOpacity(0.05),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.1), width: 1),
+                      color: Colors.white.withOpacity(0.1), width: 1),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.1), width: 1),
+                      color: Colors.white.withOpacity(0.1), width: 1),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -1586,7 +1586,7 @@ class _ActiveSessionScreenState extends State<_ActiveSessionScreen>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(colors: [
-                  accent.withValues(alpha: 0.10),
+                  accent.withOpacity(0.10),
                   Colors.transparent,
                 ]),
               ),
@@ -1599,7 +1599,7 @@ class _ActiveSessionScreenState extends State<_ActiveSessionScreen>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(colors: [
-                  AppTheme.accentCyan.withValues(alpha: 0.08),
+                  AppTheme.accentCyan.withOpacity(0.08),
                   Colors.transparent,
                 ]),
               ),
@@ -1618,7 +1618,7 @@ class _ActiveSessionScreenState extends State<_ActiveSessionScreen>
                         icon: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.08),
+                            color: Colors.white.withOpacity(0.08),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.arrow_back_ios_rounded,
@@ -1676,8 +1676,8 @@ class _ActiveSessionScreenState extends State<_ActiveSessionScreen>
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     color: _showGames
-                                        ? const Color(0xFF7C3AED).withValues(alpha: 0.25)
-                                        : Colors.white.withValues(alpha: 0.08),
+                                        ? const Color(0xFF7C3AED).withOpacity(0.25)
+                                        : Colors.white.withOpacity(0.08),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Stack(
@@ -1714,8 +1714,8 @@ class _ActiveSessionScreenState extends State<_ActiveSessionScreen>
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
                                 color: _showChat
-                                    ? accent.withValues(alpha: 0.2)
-                                    : Colors.white.withValues(alpha: 0.08),
+                                    ? accent.withOpacity(0.2)
+                                    : Colors.white.withOpacity(0.08),
                                 shape: BoxShape.circle,
                               ),
                               child: Stack(
@@ -1755,8 +1755,8 @@ class _ActiveSessionScreenState extends State<_ActiveSessionScreen>
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
                                 color: session.callActive
-                                    ? const Color(0xFF22C55E).withValues(alpha: 0.2)
-                                    : Colors.white.withValues(alpha: 0.08),
+                                    ? const Color(0xFF22C55E).withOpacity(0.2)
+                                    : Colors.white.withOpacity(0.08),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
@@ -1777,7 +1777,7 @@ class _ActiveSessionScreenState extends State<_ActiveSessionScreen>
                               icon: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.08),
+                                  color: Colors.white.withOpacity(0.08),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(Icons.share_rounded,
@@ -1928,7 +1928,7 @@ class _ListenerActionsCard extends StatelessWidget {
         color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(18),
         border:
-            Border.all(color: Colors.white.withValues(alpha: 0.07), width: 1),
+            Border.all(color: Colors.white.withOpacity(0.07), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1937,7 +1937,7 @@ class _ListenerActionsCard extends StatelessWidget {
           Row(
             children: [
               Icon(Icons.info_outline_rounded,
-                  color: accent.withValues(alpha: 0.7), size: 18),
+                  color: accent.withOpacity(0.7), size: 18),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
@@ -1967,7 +1967,7 @@ class _ListenerActionsCard extends StatelessWidget {
                 foregroundColor: const Color(0xFFFBBF24),
                 side: BorderSide(
                   color: hasPendingReq
-                      ? Colors.white.withValues(alpha: 0.1)
+                      ? Colors.white.withOpacity(0.1)
                       : const Color(0xFFFBBF24),
                   width: 1.5,
                 ),
@@ -2035,10 +2035,10 @@ class _SessionCodeCard extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [accent.withValues(alpha: 0.15), AppTheme.bgCard],
+          colors: [accent.withOpacity(0.15), AppTheme.bgCard],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: accent.withValues(alpha: 0.25), width: 1),
+        border: Border.all(color: accent.withOpacity(0.25), width: 1),
       ),
       child: Column(
         children: [
@@ -2066,7 +2066,7 @@ class _SessionCodeCard extends StatelessWidget {
                       color: AppTheme.textPrimary,
                       letterSpacing: 10,
                       shadows: [
-                        Shadow(color: accent.withValues(alpha: 0.6), blurRadius: 20)
+                        Shadow(color: accent.withOpacity(0.6), blurRadius: 20)
                       ],
                     ),
                   ),
@@ -2088,7 +2088,7 @@ class _SessionCodeCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.06),
+                    color: Colors.white.withOpacity(0.06),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(Icons.copy_rounded, color: accent, size: 18),
@@ -2108,9 +2108,9 @@ class _SessionCodeCard extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color:        accent.withValues(alpha: 0.12),
+                color:        accent.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12),
-                border:       Border.all(color: accent.withValues(alpha: 0.3)),
+                border:       Border.all(color: accent.withOpacity(0.3)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -2134,7 +2134,7 @@ class _SessionCodeCard extends StatelessWidget {
           Text(
             'Share this code with friends',
             style: TextStyle(
-              color: AppTheme.textSecondary.withValues(alpha: 0.7),
+              color: AppTheme.textSecondary.withOpacity(0.7),
               fontSize: 12,
             ),
           ),
@@ -2203,9 +2203,9 @@ class _UploadProgressBarState extends State<_UploadProgressBar>
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.07),
+          color: accent.withOpacity(0.07),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: accent.withValues(alpha: 0.18)),
+          border: Border.all(color: accent.withOpacity(0.18)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2222,7 +2222,7 @@ class _UploadProgressBarState extends State<_UploadProgressBar>
                         shape: BoxShape.circle,
                         color: accent,
                         boxShadow: [
-                          BoxShadow(color: accent.withValues(alpha: 0.5), blurRadius: 6),
+                          BoxShadow(color: accent.withOpacity(0.5), blurRadius: 6),
                         ],
                       ),
                     ),
@@ -2242,7 +2242,7 @@ class _UploadProgressBarState extends State<_UploadProgressBar>
                 Text(
                   '${(p * 100).round()}%',
                   style: TextStyle(
-                    color: accent.withValues(alpha: 0.7),
+                    color: accent.withOpacity(0.7),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -2258,7 +2258,7 @@ class _UploadProgressBarState extends State<_UploadProgressBar>
                 curve: Curves.easeOut,
                 builder: (_, val, __) => LinearProgressIndicator(
                   value: val,
-                  backgroundColor: Colors.white.withValues(alpha: 0.07),
+                  backgroundColor: Colors.white.withOpacity(0.07),
                   valueColor: AlwaysStoppedAnimation<Color>(accent),
                   minHeight: 5,
                 ),
@@ -2268,7 +2268,7 @@ class _UploadProgressBarState extends State<_UploadProgressBar>
             Text(
               _subLabel(p),
               style: TextStyle(
-                color: accent.withValues(alpha: 0.55),
+                color: accent.withOpacity(0.55),
                 fontSize: 10,
               ),
             ),
@@ -2301,7 +2301,7 @@ class _MembersCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.bgCard,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07), width: 1),
+        border: Border.all(color: Colors.white.withOpacity(0.07), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2333,9 +2333,9 @@ class _MembersCard extends StatelessWidget {
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
                         colors: isCurrentOwner
-                            ? [accent, accent.withValues(alpha: 0.5)]
+                            ? [accent, accent.withOpacity(0.5)]
                             : [
-                                AppTheme.accentCyan.withValues(alpha: 0.5),
+                                AppTheme.accentCyan.withOpacity(0.5),
                                 AppTheme.bgSurface
                               ],
                       ),
@@ -2377,7 +2377,7 @@ class _MembersCard extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 5, vertical: 2),
                             decoration: BoxDecoration(
-                              color: accent.withValues(alpha: 0.15),
+                              color: accent.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(5),
                             ),
                             child: Text(
@@ -2484,6 +2484,9 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
   Timer? _webLoadTimeout;
   // FIX-152: tracks IFrame API error code (150/151/152 = embed disabled)
   String? _ytEmbedError;
+  // BUG-YQ01 FIX: quality picker state (local per user, not synced)
+  List<String> _ytQualities     = [];
+  String _ytCurrentQuality      = 'default';
 
   // ── Content-type detection ────────────────────────────────────
   _MediaType _getMediaType(SessionEntity s) {
@@ -2566,17 +2569,25 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
   }
 
   // ── Media init / sync ─────────────────────────────────────────
+
+  /// True when [url] is a real playable HTTPS stream (not old 'yt:' placeholder).
+  static bool _isRealStreamUrl(String url) =>
+      url.startsWith('https://') || url.startsWith('http://');
+
   void _initMedia(SessionEntity s) {
     switch (_getMediaType(s)) {
       case _MediaType.localVideo:
         if (s.hasStreamUrl) _initVideoPlayer(s.streamUrl);
         break;
       case _MediaType.youtubeVideo:
-        final id = _youtubeId;
-        // _initYouTubeWebView is async (needs await for Android platform
-        // call). Use unawaited() — fire-and-forget is intentional here;
-        // the method's internal guards prevent duplicate/concurrent runs.
-        if (id.isNotEmpty) unawaited(_initYouTubeWebView(id));
+        if (_isRealStreamUrl(s.streamUrl)) {
+          // New: real HLS/MP4 stream → VideoPlayerController (no WebView)
+          _initVideoPlayer(s.streamUrl);
+        } else {
+          // Legacy: 'yt:videoId' placeholder → WebView embed fallback
+          final id = _youtubeId;
+          if (id.isNotEmpty) unawaited(_initYouTubeWebView(id));
+        }
         break;
       case _MediaType.audio:
         break;
@@ -2595,9 +2606,21 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
       }
       _handleVideoSync(curr);
     } else if (type == _MediaType.youtubeVideo) {
-      final newId = _youtubeId;
-      if (newId.isNotEmpty && newId != _loadedYtId) {
-        unawaited(_initYouTubeWebView(newId));
+      if (_isRealStreamUrl(curr.streamUrl)) {
+        // New-style: real stream URL → VideoPlayerController path
+        if (curr.streamUrl != _loadedVidUrl) {
+          _vidCtrl?.dispose();
+          setState(() { _vidReady = false; _vidCtrl = null; _ytEmbedError = null; });
+          _initVideoPlayer(curr.streamUrl);
+        } else {
+          _handleVideoSync(curr);
+        }
+      } else {
+        // Legacy: WebView path
+        final newId = _youtubeId;
+        if (newId.isNotEmpty && newId != _loadedYtId) {
+          unawaited(_initYouTubeWebView(newId));
+        }
       }
     }
   }
@@ -2774,6 +2797,19 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
         if ((data == 'ready' || data.startsWith('state:')) && mounted && _webLoading) {
           _webLoadTimeout?.cancel();
           setState(() => _webLoading = false);
+        } else if (data.startsWith('qualities:') && mounted) {
+          // BUG-YQ01 FIX: parse available quality levels
+          final raw = data.substring('qualities:'.length);
+          if (raw.isNotEmpty) {
+            setState(() {
+              _ytQualities = raw.split(',')
+                  .where((q) => q.isNotEmpty)
+                  .toList();
+            });
+          }
+        } else if (data.startsWith('qualityChanged:') && mounted) {
+          final q = data.substring('qualityChanged:'.length);
+          setState(() => _ytCurrentQuality = q);
         } else if (data.startsWith('error:') && mounted) {
           // FIX-152: capture IFrame API error code.
           // 150/151/152 = video owner disabled embedding — show custom
@@ -2894,7 +2930,19 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
       events:{
         onReady:function(e){
           e.target.playVideo();
-          if(typeof YTTogether!=='undefined') YTTogether.postMessage('ready');
+          if(typeof YTTogether!=='undefined'){
+            YTTogether.postMessage('ready');
+            // BUG-YQ01 FIX: report available quality levels to Flutter
+            var levels=e.target.getAvailableQualityLevels();
+            YTTogether.postMessage('qualities:'+levels.join(','));
+            // Retry after 3s — quality list populates fully after buffering
+            setTimeout(function(){
+              var updated=e.target.getAvailableQualityLevels();
+              if(updated.length>0&&typeof YTTogether!=='undefined'){
+                YTTogether.postMessage('qualities:'+updated.join(','));
+              }
+            },3000);
+          }
         },
         onStateChange:function(e){
           if(typeof YTTogether!=='undefined') YTTogether.postMessage('state:'+e.data);
@@ -2905,10 +2953,103 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
       }
     });
   }
+
+  // BUG-YQ01 FIX: callable from Flutter via runJavaScript('setQuality(...)')
+  function setQuality(q){
+    if(ytPlayer&&typeof ytPlayer.setPlaybackQuality==='function'){
+      ytPlayer.setPlaybackQuality(q);
+      if(typeof YTTogether!=='undefined') YTTogether.postMessage('qualityChanged:'+q);
+    }
+  }
 </script>
 </body>
 </html>''';
   }
+
+  // ── YouTube Quality Picker ────────────────────────────────────
+  void _showYtQualitySheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF0F0F1E),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 16),
+              decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2))),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('Video Quality',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Poppins',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700)),
+          ),
+          ..._ytQualities.map((q) {
+            final isSelected = _ytCurrentQuality == q;
+            return ListTile(
+              leading: Icon(
+                isSelected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: isSelected
+                    ? const Color(0xFF7C3AED)
+                    : Colors.white38,
+                size: 20,
+              ),
+              title: Text(
+                _ytQualityLabel(q),
+                style: TextStyle(
+                    color: isSelected
+                        ? const Color(0xFF7C3AED)
+                        : Colors.white,
+                    fontFamily: 'Poppins',
+                    fontWeight: isSelected
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    fontSize: 14),
+              ),
+              trailing: isSelected
+                  ? const Icon(Icons.check_rounded,
+                      color: Color(0xFF7C3AED), size: 18)
+                  : null,
+              onTap: () {
+                Navigator.pop(context);
+                _setYtQuality(q);
+              },
+            );
+          }),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  void _setYtQuality(String q) {
+    _webCtrl?.runJavaScript("setQuality('$q')");
+    setState(() => _ytCurrentQuality = q);
+  }
+
+  /// YouTube IFrame quality string → human-readable label
+  String _ytQualityLabel(String q) => switch (q) {
+        'small'   => '240p',
+        'medium'  => '360p',
+        'large'   => '480p',
+        'hd720'   => '720p HD',
+        'hd1080'  => '1080p Full HD',
+        'hd1440'  => '1440p 2K',
+        'hd2160'  => '2160p 4K',
+        'highres' => 'Highest',
+        'default' => '🤖 Auto',
+        _         => q,
+      };
 
   // ── Dispose ────────────────────────────────────────────────────
   @override
@@ -2970,7 +3111,7 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
         decoration: BoxDecoration(
           color: AppTheme.bgCard,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.07), width: 1),
+          border: Border.all(color: Colors.white.withOpacity(0.07), width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2997,7 +3138,7 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF0000).withValues(alpha: 0.15),
+                        color: const Color(0xFFFF0000).withOpacity(0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Text('YouTube',
@@ -3030,7 +3171,7 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
                               margin: const EdgeInsets.symmetric(horizontal: 0.8),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(2),
-                                color: accent.withValues(alpha: 
+                                color: accent.withOpacity(
                                     session.isPlaying ? 0.9 : 0.3),
                               ),
                             );
@@ -3087,7 +3228,7 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
                   borderRadius: BorderRadius.circular(3),
                   child: LinearProgressIndicator(
                     value: (progress as double).clamp(0.0, 1.0),
-                    backgroundColor: Colors.white.withValues(alpha: 0.08),
+                    backgroundColor: Colors.white.withOpacity(0.08),
                     valueColor: AlwaysStoppedAnimation<Color>(accent),
                     minHeight: 4,
                   ),
@@ -3148,16 +3289,19 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
                           fontWeight: FontWeight.w800,
                           letterSpacing: 1)),
                   const SizedBox(width: 10),
-                  const Text('YouTube controls inside the video',
-                      style: TextStyle(
-                          color: AppTheme.textSecondary, fontSize: 11)),
+                  Text(
+                    _isRealStreamUrl(widget.session.streamUrl)
+                        ? 'Synced playback · in-app'
+                        : 'YouTube controls inside the video',
+                    style: const TextStyle(
+                        color: AppTheme.textSecondary, fontSize: 11)),
                 ]),
               ),
               const SizedBox(height: 4),
             ],
 
             // ── Host controls (audio + local video only) ────────────
-            if (widget.isOwner && !isYt) ...[
+            if (widget.isOwner && (!isYt || _isRealStreamUrl(widget.session.streamUrl))) ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
                 child: _buildHostControls(accent, durMs),
@@ -3179,7 +3323,11 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
       case _MediaType.localVideo:
         return _buildInlineVideoPlayer(accent);
       case _MediaType.youtubeVideo:
-        return _buildYouTubeEmbed();
+        // New sessions (real HTTPS stream URL) → VideoPlayerController
+        // Legacy sessions ('yt:' prefix) → WebView fallback
+        return _isRealStreamUrl(widget.session.streamUrl)
+            ? _buildInlineVideoPlayer(accent)
+            : _buildYouTubeEmbed();
     }
   }
 
@@ -3191,12 +3339,12 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
       height: 76,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [accent.withValues(alpha: 0.13), accent.withValues(alpha: 0.04)],
+          colors: [accent.withOpacity(0.13), accent.withOpacity(0.04)],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.18), width: 1),
+        border: Border.all(color: accent.withOpacity(0.18), width: 1),
       ),
       child: Row(children: [
         Padding(
@@ -3204,7 +3352,7 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
           child: Container(
             width: 48, height: 48,
             decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.2),
+              color: accent.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(Icons.music_note_rounded, color: accent, size: 22),
@@ -3217,7 +3365,7 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
             children: [
               Text('Audio Track',
                   style: TextStyle(
-                      color: accent.withValues(alpha: 0.65),
+                      color: accent.withOpacity(0.65),
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1)),
@@ -3237,7 +3385,7 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
                       margin: const EdgeInsets.only(right: 1.5),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(2),
-                        color: accent.withValues(alpha: 
+                        color: accent.withOpacity(
                             session.isPlaying ? 0.85 : 0.25),
                       ),
                     );
@@ -3262,7 +3410,7 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
       decoration: BoxDecoration(
         color: Colors.black,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.3), width: 1),
+        border: Border.all(color: accent.withOpacity(0.3), width: 1),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
@@ -3288,13 +3436,35 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
                 const SizedBox(height: 10),
                 Text('Video uploading… please wait',
                     style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
+                        color: Colors.white.withOpacity(0.6), fontSize: 12)),
               ])
             else
               // Initializing player
               const Center(
                 child: CircularProgressIndicator(
                     color: AppTheme.accentViolet),
+              ),
+
+            // ytLoading overlay: shown while bloc fetches YouTube stream URL
+            if (_mediaType == _MediaType.youtubeVideo)
+              BlocBuilder<TogetherBloc, TogetherState>(
+                buildWhen: (p, c) => p.ytLoading != c.ytLoading,
+                builder: (_, st) => st.ytLoading
+                    ? Container(
+                        color: Colors.black.withOpacity(0.75),
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                                color: Color(0xFFFF0000), strokeWidth: 2.5),
+                            SizedBox(height: 12),
+                            Text('Fetching video stream…',
+                                style: TextStyle(
+                                    color: Colors.white60, fontSize: 12)),
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink(),
               ),
 
             // Buffering overlay (shown during mid-playback stalls)
@@ -3335,7 +3505,7 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
                   child: Container(
                     padding: const EdgeInsets.all(5),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.55),
+                      color: Colors.black.withOpacity(0.55),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Icon(Icons.fullscreen_rounded,
@@ -3375,7 +3545,7 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
         color: Colors.black,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-            color: const Color(0xFFFF0000).withValues(alpha: 0.35), width: 1),
+            color: const Color(0xFFFF0000).withOpacity(0.35), width: 1),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
@@ -3418,6 +3588,41 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
             // with a clean on-brand card + "Watch on YouTube" fallback.
             if (_ytEmbedError != null)
               _buildYtEmbedErrorOverlay(ytId),
+
+            // BUG-YQ01 FIX: quality badge — top-right, visible when ready
+            if (_ytQualities.isNotEmpty && !_webLoading)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: GestureDetector(
+                  onTap: () => _showYtQualitySheet(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.hd_rounded,
+                            color: Colors.white70, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          _ytQualityLabel(_ytCurrentQuality),
+                          style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontFamily: 'Poppins',
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -3446,9 +3651,9 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
               Container(
                 width: 44, height: 44,
                 decoration: BoxDecoration(
-                  color:  Colors.red.withValues(alpha: 0.12),
+                  color:  Colors.red.withOpacity(0.12),
                   shape:  BoxShape.circle,
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
                 ),
                 child: const Center(
                   child: Text('🚫', style: TextStyle(fontSize: 20)),
@@ -3531,7 +3736,7 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
                     child: Text(
                       '🔍  Try another video',
                       style: TextStyle(
-                        color:      accent.withValues(alpha: 0.8),
+                        color:      accent.withOpacity(0.8),
                         fontSize:   11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -3550,9 +3755,9 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.08),
+        color: accent.withOpacity(0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.18)),
+        border: Border.all(color: accent.withOpacity(0.18)),
       ),
       child: Column(children: [
         Row(children: [
@@ -3560,7 +3765,7 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
           const SizedBox(width: 6),
           Text('Host Controls',
               style: TextStyle(
-                  color: accent.withValues(alpha: 0.85),
+                  color: accent.withOpacity(0.85),
                   fontSize: 11,
                   fontWeight: FontWeight.w600)),
         ]),
@@ -3600,9 +3805,9 @@ class _TogetherUnifiedPlayerState extends State<_TogetherUnifiedPlayer> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
-                      colors: [accent, accent.withValues(alpha: 0.7)]),
+                      colors: [accent, accent.withOpacity(0.7)]),
                   boxShadow: [BoxShadow(
-                      color: accent.withValues(alpha: 0.4), blurRadius: 14)],
+                      color: accent.withOpacity(0.4), blurRadius: 14)],
                 ),
                 child: Icon(
                   widget.session.isPlaying
@@ -3734,7 +3939,7 @@ class _ControlBtn extends StatelessWidget {
       child: Container(
         width: 36, height: 36,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.07),
+          color: Colors.white.withOpacity(0.07),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: accent, size: size),
@@ -3837,13 +4042,13 @@ class _YoutubeSearchCard extends StatelessWidget {
             color: AppTheme.bgCard,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-                color: const Color(0xFFFF0000).withValues(alpha: 0.25), width: 1),
+                color: const Color(0xFFFF0000).withOpacity(0.25), width: 1),
           ),
           child: Row(children: [
             Container(
               width: 40, height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFFFF0000).withValues(alpha: 0.12),
+                color: const Color(0xFFFF0000).withOpacity(0.12),
                 borderRadius: BorderRadius.circular(11),
               ),
               child: state.ytLoading
@@ -3900,9 +4105,9 @@ class _YoutubeSearchCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   gradient: LinearGradient(colors: [
                     const Color(0xFFFF0000)
-                        .withValues(alpha: state.ytLoading ? 0.4 : 1.0),
+                        .withOpacity(state.ytLoading ? 0.4 : 1.0),
                     const Color(0xFFFF0000)
-                        .withValues(alpha: state.ytLoading ? 0.3 : 0.7),
+                        .withOpacity(state.ytLoading ? 0.3 : 0.7),
                   ]),
                 ),
                 child: const Text('Search',
@@ -3936,7 +4141,7 @@ class _VideoCallComingSoon extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.videocam_off_rounded,
-                size: 64, color: Colors.white.withValues(alpha: 0.3)),
+                size: 64, color: Colors.white.withOpacity(0.3)),
             const SizedBox(height: 16),
             const Text(
               'Video Call\nComing Soon',
@@ -4000,7 +4205,7 @@ class _TogetherBackground extends StatelessWidget {
             ),
             // Dim overlay
             ColoredBox(
-              color: Colors.black.withValues(alpha: state.togetherBgDimOpacity),
+              color: Colors.black.withOpacity(state.togetherBgDimOpacity),
             ),
             // Screen content
             child,
@@ -4179,7 +4384,7 @@ class _TogetherLocalVideoPlayerState
                                 trackHeight: 3,
                                 activeTrackColor: AppTheme.accentViolet,
                                 inactiveTrackColor:
-                                    Colors.white.withValues(alpha: 0.3),
+                                    Colors.white.withOpacity(0.3),
                                 thumbColor: AppTheme.accentViolet,
                                 overlayShape: SliderComponentShape.noOverlay,
                               ),

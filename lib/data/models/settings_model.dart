@@ -83,5 +83,10 @@ class SettingsModel extends HiveObject {
   @HiveField(21)
   double togetherBgDimOpacity = 0.6;
 
+  // ── Groq API Key (user's own key) ──────────────────────────────
+  /// User's custom Groq API key. Empty = use hardcoded fallback.
+  @HiveField(22)
+  String groqApiKey = '';
+
   SettingsModel();
 }

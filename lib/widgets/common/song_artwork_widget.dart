@@ -40,7 +40,7 @@ class SongArtworkWidget extends StatelessWidget {
       ),
       child: Icon(
         Icons.music_note_rounded,
-        color: cs.onSurface.withValues(alpha: 0.35),
+        color: cs.onSurface.withOpacity(0.35),
         size: size * 0.42,
       ),
     );

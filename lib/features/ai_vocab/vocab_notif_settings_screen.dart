@@ -1,7 +1,8 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  Vocab Notification Settings Screen                          ║
-// ║  BUG-VN03 FIX: interval display + window warning            ║
-// ║  BUG-VN04 FIX: permission denied → open system settings     ║
+// ║  CHANGE-1: Removed API key card, word bank card             ║
+// ║            Enable toggle → auto permission + generate        ║
+// ║            Set button → auto generate + reschedule           ║
 // ╚══════════════════════════════════════════════════════════════╝
 
 import 'package:flutter/material.dart';
@@ -18,17 +19,16 @@ class VocabNotifSettingsScreen extends StatefulWidget {
 }
 
 class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
-  final _svc        = VocabNotifService.instance;
-  final _apiKeyCtrl = TextEditingController();
-
-  bool _loading       = false;
-  bool _scheduling    = false;
-  bool _showApiKey    = false;
-  int  _pendingCnt    = 0;
-  String? _statusMsg;
-  bool _statusIsError = false;
-  bool _notifEnabled  = true; // system-level permission
+  final _svc           = VocabNotifService.instance;
   final _customWordCtrl = TextEditingController();
+
+  bool    _loading       = false;
+  bool    _scheduling    = false;
+  bool    _generating    = false;
+  int     _pendingCnt    = 0;
+  String? _statusMsg;
+  bool    _statusIsError = false;
+  bool    _notifEnabled  = true;
 
   static const _dayLabels  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   static const _wordCounts = [10, 20, 30, 40];
@@ -36,14 +36,12 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _apiKeyCtrl.text = _svc.settings.groqApiKey;
     _refreshPendingCount();
     _checkSystemPermission();
   }
 
   @override
   void dispose() {
-    _apiKeyCtrl.dispose();
     _customWordCtrl.dispose();
     super.dispose();
   }
@@ -65,12 +63,9 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
     });
   }
 
-  // ── Open system notification settings ────────────────────────────────────
   void _openSystemNotifSettings() {
-    // Open BeatFlow's notification settings page in system settings
     const channel = MethodChannel('beatflow/settings');
     channel.invokeMethod('openNotificationSettings').catchError((_) {
-      // Fallback: show instruction
       _showStatus(
         'System Settings > Apps > BeatFlow > Notifications → Enable karo',
         error: false,
@@ -78,62 +73,78 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
     });
   }
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
-
+  // ── CHANGE-1: Toggle handler — permission first → auto generate → auto schedule
   Future<void> _onToggleEnabled(bool val) async {
-    if (val && _svc.wordBankSize == 0) {
-      final key = _apiKeyCtrl.text.trim().isNotEmpty
-          ? _apiKeyCtrl.text.trim()
-          : _svc.settings.groqApiKey.trim();
-      if (key.isEmpty) {
-        _showStatus('Pehle Groq API key daalo, phir enable karo ⬆️', error: true);
-        return;
-      }
-      _svc.settings.groqApiKey = key;
-      await _svc.saveSettings();
+    if (val) {
+      // Step 1: Request notification permission
       setState(() {
         _loading   = true;
         _statusMsg = null;
       });
-      _showStatus('Word bank generate ho raha hai... ⏳');
-      final err = await _svc.generateWordBank(count: 60);
-      setState(() => _loading = false);
-      if (err != null) {
-        _showStatus(err, error: true);
+      _showStatus('Permission maang rahe hain...');
+
+      final granted = await _svc.requestPermissions();
+      if (!granted) {
+        setState(() => _loading = false);
+        _showStatus(
+          'Notification permission nahi mila.\nSystem Settings se enable karo.',
+          error: true,
+        );
+        await _checkSystemPermission();
         return;
       }
-      _showStatus('${_svc.wordBankSize} words generate ho gaye! 📚');
-    }
-    _svc.settings.enabled = val;
-    await _svc.saveSettings();
-    if (!val) {
-      await _svc.cancelAll();
-      _showStatus('Notifications band kar diye ✅');
-    } else {
+
+      // Step 2: Auto-generate word bank if needed
+      if (_svc.wordBankSize == 0) {
+        final targetCount = _svc.settings.dailyCount * 7;
+        _showStatus('Word bank generate ho raha hai... ⏳ ($targetCount words)');
+        final err = await _svc.generateWordBank(count: targetCount);
+        if (err != null) {
+          setState(() => _loading = false);
+          _showStatus(err, error: true);
+          return;
+        }
+      }
+
+      // Step 3: Auto-schedule
+      _svc.settings.enabled = true;
+      await _svc.saveSettings();
       final n = await _svc.scheduleNext(daysAhead: 7);
+      await _refreshPendingCount();
+      await _checkSystemPermission();
+
+      setState(() => _loading = false);
+
       final nextLabel = _svc.getNextNotificationLabel();
-      final nextLine  = nextLabel.isNotEmpty ? '\n⏰ $nextLabel pehli notification aayegi' : '';
-      _showStatus('$n notifications schedule ho gaye!$nextLine');
+      final nextLine  = nextLabel.isNotEmpty
+          ? '\n⏰ $nextLabel pehli notification aayegi!'
+          : '';
+      _showStatus('$n notifications schedule ho gaye! 🎉$nextLine');
+    } else {
+      _svc.settings.enabled = false;
+      await _svc.saveSettings();
+      await _svc.cancelAll();
+      await _refreshPendingCount();
+      _showStatus('Notifications band kar diye ✅');
     }
-    _refreshPendingCount();
     setState(() {});
   }
 
   Future<void> _pickTime({required bool isStart}) async {
     final current = isStart
         ? TimeOfDay(
-            hour:   _svc.settings.startHour,
+            hour  : _svc.settings.startHour,
             minute: _svc.settings.startMinute,
           )
         : TimeOfDay(
-            hour:   _svc.settings.endHour,
+            hour  : _svc.settings.endHour,
             minute: _svc.settings.endMinute,
           );
 
     final picked = await showTimePicker(
-      context: context,
+      context    : context,
       initialTime: current,
-      builder: (ctx, child) => Theme(
+      builder    : (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
           colorScheme: ColorScheme.dark(
             primary  : Theme.of(ctx).colorScheme.primary,
@@ -158,58 +169,51 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
     await _svc.saveSettings();
   }
 
-  Future<void> _onGenerateWordBank() async {
-    _svc.settings.groqApiKey = _apiKeyCtrl.text.trim();
-    await _svc.saveSettings();
+  // ── CHANGE-1: Set button → save count + generate words + reschedule
+  Future<void> _onSetWordCount() async {
+    final customText = _customWordCtrl.text.trim();
+    final int targetCount;
 
-    if (_svc.settings.groqApiKey.isEmpty) {
-      _showStatus('Groq API key daalo pehle ⬆️', error: true);
-      return;
+    if (customText.isNotEmpty) {
+      final parsed = int.tryParse(customText);
+      if (parsed == null || parsed < 1 || parsed > 200) {
+        _showStatus('1 se 200 ke beech number daalo', error: true);
+        return;
+      }
+      targetCount = parsed;
+    } else {
+      targetCount = _svc.settings.dailyCount;
     }
 
     setState(() {
-      _loading   = true;
-      _statusMsg = null;
+      _svc.settings.dailyCount = targetCount;
+      _generating = true;
+      _statusMsg  = null;
     });
+    await _svc.saveSettings();
+    FocusScope.of(context).unfocus();
 
-    final err = await _svc.generateWordBank(count: 60);
+    _showStatus('Words generate ho rahe hain... ⏳');
+    final err = await _svc.generateWordBank(count: targetCount * 7);
 
-    setState(() => _loading = false);
+    setState(() => _generating = false);
 
     if (err != null) {
       _showStatus(err, error: true);
-    } else {
-      _showStatus('${_svc.wordBankSize} words generate ho gaye! 📚');
+      return;
     }
+
+    _showStatus('${_svc.wordBankSize} words ready! 🎉');
+
+    // Auto reschedule if enabled
+    if (_svc.settings.enabled) {
+      await _svc.scheduleNext(daysAhead: 7);
+      await _refreshPendingCount();
+    }
+    setState(() {});
   }
 
   Future<void> _onSchedule() async {
-    // BUG-V5 FIX: Auto-generate word bank if empty — user nahi karna chahta manually
-    if (_svc.wordBankSize == 0) {
-      if (_svc.settings.groqApiKey.isEmpty) {
-        _showStatus(
-          'Ek baar Groq API key daalo (free hai: console.groq.com) — '
-          'phir Schedule press karo, baaki sab automatic hoga! 🔑',
-          error: true,
-        );
-        return;
-      }
-
-      setState(() {
-        _scheduling = true;
-        _statusMsg  = null;
-      });
-      _showStatus('📚 Words generate ho rahe hain... ek minute');
-
-      final genErr = await _svc.generateWordBank(count: 60);
-      if (genErr != null) {
-        setState(() => _scheduling = false);
-        _showStatus('Word generation fail hua: $genErr', error: true);
-        return;
-      }
-      setState(() {}); // update word count display
-    }
-
     setState(() {
       _scheduling = true;
       _statusMsg  = null;
@@ -242,7 +246,6 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
         error: true,
       );
     } else {
-      // BUG-V5 FIX: Show exactly WHEN the next notification will fire
       final nextLabel = _svc.getNextNotificationLabel();
       final nextLine  = nextLabel.isNotEmpty
           ? '\n⏰ Pehli notification: $nextLabel aayegi!'
@@ -272,26 +275,30 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // BUG-VN04 FIX: Show system permission warning banner
+          // CHANGE-1 Layout order:
+          // 1. Permission warning banner (if off)
           if (!_notifEnabled) ...[
             _buildPermissionWarningBanner(accent),
             const SizedBox(height: 12),
           ],
+          // 2. Status banner
           _buildStatusBanner(accent),
           const SizedBox(height: 12),
+          // 3. Enable toggle card
           _buildEnableCard(accent),
           const SizedBox(height: 12),
+          // 4. Time range card
           _buildTimeRangeCard(accent),
           const SizedBox(height: 12),
+          // 5. Active days card
           _buildActiveDaysCard(accent),
           const SizedBox(height: 12),
+          // 6. Words per day card
           _buildWordCountCard(accent),
           const SizedBox(height: 12),
-          _buildApiKeyCard(accent),
-          const SizedBox(height: 12),
-          _buildWordBankCard(accent),
-          const SizedBox(height: 12),
+          // 7. Schedule + Test buttons (directly after word count)
           _buildActionButtons(accent),
+          // 8. Status message
           if (_statusMsg != null) ...[
             const SizedBox(height: 12),
             _buildStatusMessage(accent),
@@ -319,7 +326,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
             width: 34, height: 34,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [accent, accent.withValues(alpha: 0.6)],
+                colors: [accent, accent.withOpacity(0.6)],
               ),
               borderRadius: BorderRadius.circular(10),
             ),
@@ -340,30 +347,30 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
       ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: Colors.white.withValues(alpha: 0.07)),
+        child: Container(height: 1, color: Colors.white.withOpacity(0.07)),
       ),
     );
   }
 
-  // ── BUG-VN04 FIX: System permission warning ───────────────────────────────
+  // ── Permission Warning ────────────────────────────────────────────────────
 
   Widget _buildPermissionWarningBanner(Color accent) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.orange.withValues(alpha: 0.12),
+        color: Colors.orange.withOpacity(0.12),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+        border: Border.all(color: Colors.orange.withOpacity(0.4)),
       ),
       child: Row(
         children: [
           const Icon(Icons.notification_important_rounded,
               color: Colors.orange, size: 22),
           const SizedBox(width: 10),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
                   '🔕 System Notifications OFF',
                   style: TextStyle(
@@ -388,7 +395,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
           TextButton(
             onPressed: _openSystemNotifSettings,
             style: TextButton.styleFrom(
-              backgroundColor: Colors.orange.withValues(alpha: 0.2),
+              backgroundColor: Colors.orange.withOpacity(0.2),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
@@ -413,17 +420,18 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
   Widget _buildStatusBanner(Color accent) {
     final enabled   = _svc.settings.enabled;
     final nextLabel = enabled ? _svc.getNextNotificationLabel() : '';
+    final bankSize  = _svc.wordBankSize;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: enabled
-            ? accent.withValues(alpha: 0.15)
-            : Colors.white.withValues(alpha: 0.04),
+            ? accent.withOpacity(0.15)
+            : Colors.white.withOpacity(0.04),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: enabled ? accent.withValues(alpha: 0.4) : Colors.white12,
+          color: enabled ? accent.withOpacity(0.4) : Colors.white12,
         ),
       ),
       child: Row(
@@ -431,7 +439,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
           Container(
             width: 40, height: 40,
             decoration: BoxDecoration(
-              color: enabled ? accent.withValues(alpha: 0.2) : Colors.white10,
+              color: enabled ? accent.withOpacity(0.2) : Colors.white10,
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -456,7 +464,6 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                     color      : enabled ? accent : AppTheme.textSecondary,
                   ),
                 ),
-                // BUG-V5 FIX: Show next notification time so user knows when to expect it
                 if (enabled && nextLabel.isNotEmpty)
                   Text(
                     '⏰ $nextLabel pehli notification',
@@ -464,12 +471,12 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                       fontFamily : 'Poppins',
                       fontSize   : 12,
                       fontWeight : FontWeight.w600,
-                      color      : accent.withValues(alpha: 0.9),
+                      color      : accent.withOpacity(0.9),
                     ),
                   )
                 else if (enabled)
                   Text(
-                    '$_pendingCnt notifications scheduled hain',
+                    '$_pendingCnt notifications scheduled | $bankSize words ready',
                     style: const TextStyle(
                       fontFamily : 'Poppins',
                       fontSize   : 12,
@@ -477,9 +484,11 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                     ),
                   )
                 else
-                  const Text(
-                    'Neeche "Schedule Karo" dabao',
-                    style: TextStyle(
+                  Text(
+                    bankSize > 0
+                        ? '$bankSize words ready — Enable karo upar se ⬆️'
+                        : 'Toggle ON karo — sab automatic ho jayega!',
+                    style: const TextStyle(
                       fontFamily : 'Poppins',
                       fontSize   : 12,
                       color      : AppTheme.textSecondary,
@@ -502,8 +511,8 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
           Container(
             width: 40, height: 40,
             decoration: BoxDecoration(
-              color            : accent.withValues(alpha: 0.12),
-              borderRadius     : BorderRadius.circular(12),
+              color        : accent.withOpacity(0.12),
+              borderRadius : BorderRadius.circular(12),
             ),
             child: Icon(Icons.power_settings_new_rounded,
                 color: accent, size: 20),
@@ -523,7 +532,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                   ),
                 ),
                 Text(
-                  'Notifications bhejne shuru / band karo',
+                  'ON karo → permission + words + schedule — sab automatic!',
                   style: TextStyle(
                     fontFamily : 'Poppins',
                     fontSize   : 11,
@@ -533,12 +542,18 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
               ],
             ),
           ),
-          Switch(
-            value          : _svc.settings.enabled,
-            onChanged      : _onToggleEnabled,
-            activeColor    : accent,
-            inactiveThumbColor: AppTheme.textSecondary,
-          ),
+          if (_loading)
+            const SizedBox(
+              width: 24, height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            )
+          else
+            Switch(
+              value             : _svc.settings.enabled,
+              onChanged         : _onToggleEnabled,
+              activeColor       : accent,
+              inactiveThumbColor: AppTheme.textSecondary,
+            ),
         ],
       ),
     );
@@ -571,7 +586,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Icon(Icons.arrow_forward_rounded,
-                    color: accent.withValues(alpha: 0.5), size: 20),
+                    color: accent.withOpacity(0.5), size: 20),
               ),
               Expanded(
                 child: _TimeButton(
@@ -591,7 +606,6 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
     );
   }
 
-  // BUG-VN03 FIX: Show correct interval + warning when window too small
   Widget _buildIntervalPreview(Color accent) {
     final startMin = _svc.settings.startHour   * 60 + _svc.settings.startMinute;
     final endMin   = _svc.settings.endHour     * 60 + _svc.settings.endMinute;
@@ -602,27 +616,22 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color        : Colors.red.withValues(alpha: 0.08),
+          color        : Colors.red.withOpacity(0.08),
           borderRadius : BorderRadius.circular(8),
         ),
         child: const Text(
           '⚠️ End time, Start time se pehle hai!',
           style: TextStyle(
-            fontFamily : 'Poppins', fontSize: 11,
-            color      : Colors.redAccent,
-          ),
+            fontFamily : 'Poppins', fontSize: 11, color: Colors.redAccent),
         ),
       );
     }
 
-    if (count <= 0) {
-      return const SizedBox.shrink();
-    }
+    if (count <= 0) return const SizedBox.shrink();
 
-    // BUG-VN03 FIX: effectiveCount is capped to window minutes
     final effectiveCount = count > window ? window : count;
-    final intervalMins   = window / effectiveCount; // may be < 1
-    final tooTight       = count > window; // user asked for more than window allows
+    final intervalMins   = window / effectiveCount;
+    final tooTight       = count > window;
 
     String intervalStr;
     if (intervalMins < 1) {
@@ -640,28 +649,24 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color        : accent.withValues(alpha: 0.08),
+            color        : accent.withOpacity(0.08),
             borderRadius : BorderRadius.circular(8),
           ),
           child: Text(
             '⏱ Har $intervalStr mein ek word notification aayega'
             '${tooTight ? " (${effectiveCount}/${count} words)" : ""}',
             style: TextStyle(
-              fontFamily : 'Poppins',
-              fontSize   : 11,
-              color      : accent.withValues(alpha: 0.9),
-            ),
+              fontFamily : 'Poppins', fontSize: 11, color: accent.withOpacity(0.9)),
           ),
         ),
-        // Show warning if count > window
         if (tooTight) ...[
           const SizedBox(height: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color        : Colors.orange.withValues(alpha: 0.08),
-              borderRadius : BorderRadius.circular(8),
-              border       : Border.all(color: Colors.orange.withValues(alpha: 0.25)),
+              color  : Colors.orange.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(8),
+              border : Border.all(color: Colors.orange.withOpacity(0.25)),
             ),
             child: Row(
               children: [
@@ -674,11 +679,8 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                     'Abhi sirf $effectiveCount words schedule honge.\n'
                     'Window badhao ya words kam karo.',
                     style: const TextStyle(
-                      fontFamily : 'Poppins',
-                      fontSize   : 10,
-                      color      : Colors.orange,
-                      height     : 1.4,
-                    ),
+                      fontFamily : 'Poppins', fontSize: 10,
+                      color: Colors.orange, height: 1.4),
                   ),
                 ),
               ],
@@ -724,13 +726,10 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                   width      : 44,
                   height     : 44,
                   decoration : BoxDecoration(
-                    color        : active
-                        ? accent
-                        : Colors.white.withValues(alpha: 0.07),
+                    color        : active ? accent : Colors.white.withOpacity(0.07),
                     borderRadius : BorderRadius.circular(12),
                     border       : Border.all(
-                      color: active ? accent : Colors.white12,
-                    ),
+                      color: active ? accent : Colors.white12),
                   ),
                   child: Center(
                     child: Text(
@@ -739,9 +738,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                         fontFamily : 'Poppins',
                         fontSize   : 11,
                         fontWeight : FontWeight.w600,
-                        color      : active
-                            ? Colors.white
-                            : AppTheme.textSecondary,
+                        color      : active ? Colors.white : AppTheme.textSecondary,
                       ),
                     ),
                   ),
@@ -754,7 +751,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
     );
   }
 
-  // ── Word Count Card ───────────────────────────────────────────────────────
+  // ── CHANGE-1: Word Count Card — "Set" triggers auto-generate ─────────────
 
   Widget _buildWordCountCard(Color accent) {
     final isCustom = !_wordCounts.contains(_svc.settings.dailyCount);
@@ -768,6 +765,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
             accent: accent,
           ),
           const SizedBox(height: 12),
+          // Preset buttons — just select count (no auto-generate)
           Row(
             children: _wordCounts.map((cnt) {
               final selected = _svc.settings.dailyCount == cnt;
@@ -787,11 +785,10 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                     decoration : BoxDecoration(
                       color        : selected
                           ? accent
-                          : Colors.white.withValues(alpha: 0.06),
+                          : Colors.white.withOpacity(0.06),
                       borderRadius : BorderRadius.circular(12),
                       border       : Border.all(
-                        color: selected ? accent : Colors.white12,
-                      ),
+                        color: selected ? accent : Colors.white12),
                     ),
                     child: Column(
                       children: [
@@ -801,9 +798,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                             fontFamily : 'Poppins',
                             fontSize   : 18,
                             fontWeight : FontWeight.w700,
-                            color      : selected
-                                ? Colors.white
-                                : AppTheme.textPrimary,
+                            color      : selected ? Colors.white : AppTheme.textPrimary,
                           ),
                         ),
                         Text(
@@ -811,9 +806,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                           style: TextStyle(
                             fontFamily : 'Poppins',
                             fontSize   : 10,
-                            color      : selected
-                                ? Colors.white70
-                                : AppTheme.textSecondary,
+                            color      : selected ? Colors.white70 : AppTheme.textSecondary,
                           ),
                         ),
                       ],
@@ -824,6 +817,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
             }).toList(),
           ),
           const SizedBox(height: 10),
+          // Custom input + Set button
           Row(
             children: [
               Expanded(
@@ -831,66 +825,63 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
                   controller   : _customWordCtrl,
                   keyboardType : TextInputType.number,
                   style: const TextStyle(
-                    fontFamily : 'Poppins',
-                    fontSize   : 14,
-                    color      : AppTheme.textPrimary,
-                  ),
+                    fontFamily : 'Poppins', fontSize: 14,
+                    color: AppTheme.textPrimary),
                   decoration: InputDecoration(
                     hintText : isCustom
                         ? '${_svc.settings.dailyCount} (custom)'
                         : 'Ya apna number likho...',
                     hintStyle: const TextStyle(
-                      fontFamily : 'Poppins',
-                      fontSize   : 12,
-                      color      : AppTheme.textSecondary,
-                    ),
+                      fontFamily : 'Poppins', fontSize: 12,
+                      color: AppTheme.textSecondary),
                     filled        : true,
-                    fillColor     : Colors.white.withValues(alpha: 0.05),
+                    fillColor     : Colors.white.withOpacity(0.05),
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 10),
-                    border        : OutlineInputBorder(
+                    border       : OutlineInputBorder(
                       borderRadius : BorderRadius.circular(12),
                       borderSide   : const BorderSide(color: Colors.white12),
                     ),
-                    enabledBorder : OutlineInputBorder(
+                    enabledBorder: OutlineInputBorder(
                       borderRadius : BorderRadius.circular(12),
                       borderSide   : const BorderSide(color: Colors.white12),
                     ),
-                    focusedBorder : OutlineInputBorder(
+                    focusedBorder: OutlineInputBorder(
                       borderRadius : BorderRadius.circular(12),
-                      borderSide   : BorderSide(color: accent.withValues(alpha: 0.5)),
+                      borderSide   : BorderSide(color: accent.withOpacity(0.5)),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
+              // CHANGE-1: Set button triggers generation
               GestureDetector(
-                onTap: () async {
-                  final val = int.tryParse(_customWordCtrl.text.trim());
-                  if (val == null || val < 1 || val > 200) {
-                    _showStatus('1 se 200 ke beech number daalo', error: true);
-                    return;
-                  }
-                  setState(() => _svc.settings.dailyCount = val);
-                  await _svc.saveSettings();
-                  _showStatus('$val words/day set ho gaya ✅');
-                  FocusScope.of(context).unfocus();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 18, vertical: 12),
-                  decoration: BoxDecoration(
-                    color        : accent,
-                    borderRadius : BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Set',
-                    style: TextStyle(
-                      fontFamily : 'Poppins',
-                      fontSize   : 14,
-                      fontWeight : FontWeight.w700,
-                      color      : Colors.white,
+                onTap: _generating ? null : _onSetWordCount,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: _generating ? 0.6 : 1.0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 12),
+                    decoration: BoxDecoration(
+                      color        : accent,
+                      borderRadius : BorderRadius.circular(12),
                     ),
+                    child: _generating
+                        ? const SizedBox(
+                            width: 18, height: 18,
+                            child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2.5),
+                          )
+                        : const Text(
+                            'Set',
+                            style: TextStyle(
+                              fontFamily : 'Poppins',
+                              fontSize   : 14,
+                              fontWeight : FontWeight.w700,
+                              color      : Colors.white,
+                            ),
+                          ),
                   ),
                 ),
               ),
@@ -901,159 +892,72 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
             Text(
               '✏️ Custom: ${_svc.settings.dailyCount} words/day',
               style: TextStyle(
-                fontFamily : 'Poppins',
-                fontSize   : 11,
-                color      : accent.withValues(alpha: 0.8),
-              ),
+                fontFamily : 'Poppins', fontSize: 11,
+                color: accent.withOpacity(0.8)),
             ),
           ],
-        ],
-      ),
-    );
-  }
-
-  // ── API Key Card ──────────────────────────────────────────────────────────
-
-  Widget _buildApiKeyCard(Color accent) {
-    return _Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionLabel(
-            icon : Icons.key_rounded,
-            label: 'Groq API Key',
-            accent: accent,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Free key milti hai: console.groq.com',
-            style: TextStyle(
-              fontFamily : 'Poppins',
-              fontSize   : 11,
-              color      : accent.withValues(alpha: 0.7),
+          if (_generating) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Words generate ho rahe hain... ⏳',
+              style: TextStyle(
+                fontFamily : 'Poppins', fontSize: 11,
+                color: accent.withOpacity(0.7)),
             ),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller  : _apiKeyCtrl,
-            obscureText : !_showApiKey,
-            style: const TextStyle(
-              fontFamily : 'Poppins',
-              fontSize   : 13,
-              color      : AppTheme.textPrimary,
-            ),
-            decoration: InputDecoration(
-              hintText      : 'gsk_xxxxxxxxxxxxxxxxxxxxx',
-              hintStyle: const TextStyle(
-                fontFamily : 'Poppins',
-                fontSize   : 12,
-                color      : AppTheme.textSecondary,
-              ),
-              filled        : true,
-              fillColor     : Colors.white.withValues(alpha: 0.05),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 12),
-              border        : OutlineInputBorder(
-                borderRadius : BorderRadius.circular(12),
-                borderSide   : const BorderSide(color: Colors.white12),
-              ),
-              enabledBorder : OutlineInputBorder(
-                borderRadius : BorderRadius.circular(12),
-                borderSide   : const BorderSide(color: Colors.white12),
-              ),
-              focusedBorder : OutlineInputBorder(
-                borderRadius : BorderRadius.circular(12),
-                borderSide   : BorderSide(color: accent.withValues(alpha: 0.5)),
-              ),
-              suffixIcon: IconButton(
-                onPressed: () =>
-                    setState(() => _showApiKey = !_showApiKey),
-                icon: Icon(
-                  _showApiKey
-                      ? Icons.visibility_off_rounded
-                      : Icons.visibility_rounded,
-                  color: AppTheme.textSecondary,
-                  size: 18,
-                ),
-              ),
-            ),
-            onChanged: (v) {
-              _svc.settings.groqApiKey = v;
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Word Bank Card ────────────────────────────────────────────────────────
-
-  Widget _buildWordBankCard(Color accent) {
-    final size = _svc.wordBankSize;
-    return _Card(
-      child: Row(
-        children: [
+          ],
+          // Word bank size display
+          const SizedBox(height: 8),
           Container(
-            width: 48, height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color        : accent.withValues(alpha: 0.12),
-              shape        : BoxShape.circle,
+              color        : _svc.wordBankSize > 0
+                  ? Colors.greenAccent.withOpacity(0.08)
+                  : Colors.white.withOpacity(0.04),
+              borderRadius : BorderRadius.circular(10),
+              border       : Border.all(
+                color: _svc.wordBankSize > 0
+                    ? Colors.greenAccent.withOpacity(0.25)
+                    : Colors.white12),
             ),
-            child: Center(
-              child: Text(
-                '$size',
-                style: TextStyle(
-                  fontFamily : 'Poppins',
-                  fontSize   : 18,
-                  fontWeight : FontWeight.w800,
-                  color      : accent,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                const Text(
-                  'Word Bank',
+                Icon(
+                  _svc.wordBankSize > 0
+                      ? Icons.check_circle_rounded
+                      : Icons.hourglass_empty_rounded,
+                  color: _svc.wordBankSize > 0
+                      ? Colors.greenAccent
+                      : AppTheme.textSecondary,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _svc.wordBankSize > 0
+                      ? '${_svc.wordBankSize} words bank mein ready hain ✅'
+                      : 'Bank empty — Set dabao ya Toggle ON karo',
                   style: TextStyle(
                     fontFamily : 'Poppins',
-                    fontSize   : 14,
-                    fontWeight : FontWeight.w600,
-                    color      : AppTheme.textPrimary,
-                  ),
-                ),
-                Text(
-                  size == 0
-                      ? 'Abhi koi words nahi — Generate karo ⬇️'
-                      : '$size words ready hain',
-                  style: const TextStyle(
-                    fontFamily : 'Poppins',
-                    fontSize   : 12,
-                    color      : AppTheme.textSecondary,
+                    fontSize   : 11,
+                    color      : _svc.wordBankSize > 0
+                        ? Colors.greenAccent
+                        : AppTheme.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
-          if (size > 0)
-            Icon(Icons.check_circle_rounded,
-                color: Colors.greenAccent.withValues(alpha: 0.8), size: 22),
         ],
       ),
     );
   }
 
-  // ── Action Buttons ────────────────────────────────────────────────────────
+  // ── CHANGE-1: Action Buttons — only Schedule + Test ───────────────────────
 
   Widget _buildActionButtons(Color accent) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // BUG-V5 FIX: Schedule is now the PRIMARY button (top, full gradient)
-        // Word bank auto-generates inside _onSchedule if empty
+        // Schedule button — primary
         _ActionButton(
           icon    : Icons.schedule_rounded,
           label   : 'Schedule Karo ✅',
@@ -1065,8 +969,7 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
           onTap   : _scheduling ? null : _onSchedule,
         ),
         const SizedBox(height: 10),
-
-        // Test notification — immediate check
+        // Test notification button — outlined
         OutlinedButton.icon(
           onPressed: _onTestNotification,
           icon : const Icon(Icons.notification_important_rounded, size: 16),
@@ -1076,25 +979,13 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
           ),
           style: OutlinedButton.styleFrom(
             foregroundColor : accent,
-            side            : BorderSide(color: accent.withValues(alpha: 0.4)),
+            side            : BorderSide(color: accent.withOpacity(0.4)),
             padding         : const EdgeInsets.symmetric(
                 vertical: 12, horizontal: 20),
             shape           : RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14)),
             minimumSize     : const Size(double.infinity, 48),
           ),
-        ),
-        const SizedBox(height: 10),
-
-        // Generate Word Bank — secondary (for manual refresh/add more words)
-        _ActionButton(
-          icon    : Icons.auto_awesome_rounded,
-          label   : 'Aur Words Add Karo (AI)',
-          subLabel: '60 aur SSC CGL words generate karo',
-          accent  : accent,
-          loading : _loading,
-          onTap   : _loading ? null : _onGenerateWordBank,
-          secondary: true,
         ),
       ],
     );
@@ -1107,13 +998,13 @@ class _VocabNotifSettingsScreenState extends State<VocabNotifSettingsScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _statusIsError
-            ? Colors.redAccent.withValues(alpha: 0.12)
-            : Colors.greenAccent.withValues(alpha: 0.1),
+            ? Colors.redAccent.withOpacity(0.12)
+            : Colors.greenAccent.withOpacity(0.1),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: _statusIsError
-              ? Colors.redAccent.withValues(alpha: 0.3)
-              : Colors.greenAccent.withValues(alpha: 0.3),
+              ? Colors.redAccent.withOpacity(0.3)
+              : Colors.greenAccent.withOpacity(0.3),
         ),
       ),
       child: Row(
@@ -1165,7 +1056,7 @@ class _Card extends StatelessWidget {
       decoration : BoxDecoration(
         color        : AppTheme.bgCard,
         borderRadius : BorderRadius.circular(18),
-        border       : Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        border       : Border.all(color: Colors.white.withOpacity(0.07)),
       ),
       child: child,
     );
@@ -1218,8 +1109,8 @@ class _TimeButton extends StatelessWidget {
   });
 
   String get _formatted {
-    final h   = hour % 12 == 0 ? 12 : hour % 12;
-    final m   = minute.toString().padLeft(2, '0');
+    final h    = hour % 12 == 0 ? 12 : hour % 12;
+    final m    = minute.toString().padLeft(2, '0');
     final ampm = hour < 12 ? 'AM' : 'PM';
     return '$h:$m $ampm';
   }
@@ -1231,29 +1122,24 @@ class _TimeButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
         decoration: BoxDecoration(
-          color        : accent.withValues(alpha: 0.1),
+          color        : accent.withOpacity(0.1),
           borderRadius : BorderRadius.circular(14),
-          border       : Border.all(color: accent.withValues(alpha: 0.25)),
+          border       : Border.all(color: accent.withOpacity(0.25)),
         ),
         child: Column(
           children: [
             Text(
               label,
               style: TextStyle(
-                fontFamily : 'Poppins',
-                fontSize   : 11,
-                color      : accent.withValues(alpha: 0.7),
-              ),
+                fontFamily : 'Poppins', fontSize: 11,
+                color: accent.withOpacity(0.7)),
             ),
             const SizedBox(height: 4),
             Text(
               _formatted,
               style: const TextStyle(
-                fontFamily : 'Poppins',
-                fontSize   : 16,
-                fontWeight : FontWeight.w700,
-                color      : AppTheme.textPrimary,
-              ),
+                fontFamily : 'Poppins', fontSize: 16, fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary),
             ),
             const SizedBox(height: 2),
             Icon(Icons.access_time_rounded, color: accent, size: 14),
@@ -1265,12 +1151,11 @@ class _TimeButton extends StatelessWidget {
 }
 
 class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String   label;
-  final String   subLabel;
-  final Color    accent;
-  final bool     loading;
-  final bool     secondary;
+  final IconData      icon;
+  final String        label;
+  final String        subLabel;
+  final Color         accent;
+  final bool          loading;
   final VoidCallback? onTap;
 
   const _ActionButton({
@@ -1279,7 +1164,6 @@ class _ActionButton extends StatelessWidget {
     required this.subLabel,
     required this.accent,
     required this.loading,
-    this.secondary = false,
     this.onTap,
   });
 
@@ -1288,48 +1172,34 @@ class _ActionButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedOpacity(
-        duration : const Duration(milliseconds: 200),
-        opacity  : loading ? 0.6 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        opacity : loading ? 0.6 : 1.0,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            gradient: secondary
-                ? null
-                : LinearGradient(
-                    colors: [accent, accent.withValues(alpha: 0.7)],
-                    begin : Alignment.topLeft,
-                    end   : Alignment.bottomRight,
-                  ),
-            color: secondary ? accent.withValues(alpha: 0.12) : null,
+            gradient: LinearGradient(
+              colors: [accent, accent.withOpacity(0.7)],
+              begin : Alignment.topLeft,
+              end   : Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(16),
-            border: secondary
-                ? Border.all(color: accent.withValues(alpha: 0.3))
-                : null,
-            boxShadow: secondary
-                ? null
-                : [
-                    BoxShadow(
-                      color    : accent.withValues(alpha: 0.35),
-                      blurRadius: 12,
-                      offset   : const Offset(0, 4),
-                    )
-                  ],
+            boxShadow: [
+              BoxShadow(
+                color    : accent.withOpacity(0.35),
+                blurRadius: 12,
+                offset   : const Offset(0, 4),
+              )
+            ],
           ),
           child: Row(
             children: [
               loading
-                  ? SizedBox(
+                  ? const SizedBox(
                       width: 24, height: 24,
                       child: CircularProgressIndicator(
-                        color       : secondary ? accent : Colors.white,
-                        strokeWidth : 2.5,
-                      ),
+                        color: Colors.white, strokeWidth: 2.5),
                     )
-                  : Icon(
-                      icon,
-                      color: secondary ? accent : Colors.white,
-                      size : 22,
-                    ),
+                  : Icon(icon, color: Colors.white, size: 22),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -1337,31 +1207,21 @@ class _ActionButton extends StatelessWidget {
                   children: [
                     Text(
                       label,
-                      style: TextStyle(
-                        fontFamily : 'Poppins',
-                        fontSize   : 14,
-                        fontWeight : FontWeight.w700,
-                        color      : secondary ? accent : Colors.white,
-                      ),
+                      style: const TextStyle(
+                        fontFamily : 'Poppins', fontSize: 14,
+                        fontWeight : FontWeight.w700, color: Colors.white),
                     ),
                     Text(
                       loading ? 'Wait karo...' : subLabel,
-                      style: TextStyle(
-                        fontFamily : 'Poppins',
-                        fontSize   : 11,
-                        color      : secondary
-                            ? accent.withValues(alpha: 0.7)
-                            : Colors.white70,
-                      ),
+                      style: const TextStyle(
+                        fontFamily : 'Poppins', fontSize: 11,
+                        color: Colors.white70),
                     ),
                   ],
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_rounded,
-                color: secondary ? accent.withValues(alpha: 0.5) : Colors.white60,
-                size : 18,
-              ),
+              const Icon(Icons.arrow_forward_rounded,
+                  color: Colors.white60, size: 18),
             ],
           ),
         ),

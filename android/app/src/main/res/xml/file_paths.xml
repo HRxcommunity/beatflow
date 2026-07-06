@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- getExternalStorageDirectory() → /Android/data/com.beatflow.app/files/ -->
+    <external-files-path name="external_files" path="." />
+    <!-- getApplicationDocumentsDirectory() fallback -->
+    <files-path name="internal_files" path="." />
+    <!-- Cache fallback -->
+    <cache-path name="cache" path="." />
+</paths>

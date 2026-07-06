@@ -38,13 +38,14 @@ class SettingsModelAdapter extends TypeAdapter<SettingsModel> {
       ..songCardColorValue = fields[18] as int
       ..togetherBgType = fields[19] as int
       ..togetherBgImagePath = fields[20] as String?
-      ..togetherBgDimOpacity = fields[21] as double;
+      ..togetherBgDimOpacity = fields[21] as double
+      ..groqApiKey = fields[22] as String? ?? '';
   }
 
   @override
   void write(BinaryWriter writer, SettingsModel obj) {
     writer
-      ..writeByte(22)
+      ..writeByte(23)
       ..writeByte(0)
       ..write(obj.themeMode)
       ..writeByte(1)
@@ -88,7 +89,9 @@ class SettingsModelAdapter extends TypeAdapter<SettingsModel> {
       ..writeByte(20)
       ..write(obj.togetherBgImagePath)
       ..writeByte(21)
-      ..write(obj.togetherBgDimOpacity);
+      ..write(obj.togetherBgDimOpacity)
+      ..writeByte(22)
+      ..write(obj.groqApiKey);
   }
 
   @override

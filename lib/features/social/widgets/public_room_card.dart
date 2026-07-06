@@ -28,14 +28,14 @@ class PublicRoomCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border:       Border.all(
           color: isTrending
-              ? AppTheme.accentViolet.withValues(alpha: 0.5)
-              : Colors.white.withValues(alpha: 0.06),
+              ? AppTheme.accentViolet.withOpacity(0.5)
+              : Colors.white.withOpacity(0.06),
           width: isTrending ? 1.5 : 1,
         ),
         boxShadow: isTrending
             ? [
                 BoxShadow(
-                  color:       AppTheme.accentViolet.withValues(alpha: 0.18),
+                  color:       AppTheme.accentViolet.withOpacity(0.18),
                   blurRadius:  18,
                   spreadRadius: 0,
                 ),
@@ -54,9 +54,9 @@ class PublicRoomCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color:        catColor.withValues(alpha: 0.18),
+                    color:        catColor.withOpacity(0.18),
                     borderRadius: BorderRadius.circular(8),
-                    border:       Border.all(color: catColor.withValues(alpha: 0.35)),
+                    border:       Border.all(color: catColor.withOpacity(0.35)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -81,7 +81,7 @@ class PublicRoomCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color:        AppTheme.accentViolet.withValues(alpha: 0.18),
+                      color:        AppTheme.accentViolet.withOpacity(0.18),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -130,9 +130,9 @@ class PublicRoomCard extends StatelessWidget {
                 Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color:        catColor.withValues(alpha: 0.12),
+                    color:        catColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(10),
-                    border:       Border.all(color: catColor.withValues(alpha: 0.25)),
+                    border:       Border.all(color: catColor.withOpacity(0.25)),
                   ),
                   child: const Center(
                     child: Text('🎵', style: TextStyle(fontSize: 18)),
@@ -199,7 +199,7 @@ class PublicRoomCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color:      AppTheme.accentViolet.withValues(alpha: 0.35),
+                          color:      AppTheme.accentViolet.withOpacity(0.35),
                           blurRadius: 8,
                         ),
                       ],

@@ -15,17 +15,12 @@ class TogetherAuthService {
   Future<User?> signInAnonymously({String? displayName}) async {
     try {
       if (_auth.currentUser != null) {
-        // BUG-MED-02 FIX: update display name if user changed it between sessions.
+        // BUG-NAME FIX: always update displayName even if already signed in.
         // Previously this returned early without calling updateDisplayName(),
-        // so the old name persisted in Firebase Auth and session member lists.
-        if (displayName != null &&
-            displayName.isNotEmpty &&
-            _auth.currentUser!.displayName != displayName) {
-          try {
-            await _auth.currentUser!.updateDisplayName(displayName);
-          } catch (e) {
-            debugPrint('[Together] updateDisplayName error: $e');
-          }
+        // so the name typed by the user was silently discarded and the old
+        // name (e.g. 'BeatFlow User' from social_screen auto-sign-in) stayed.
+        if (displayName != null && displayName.isNotEmpty) {
+          await _auth.currentUser!.updateDisplayName(displayName);
         }
         return _auth.currentUser;
       }

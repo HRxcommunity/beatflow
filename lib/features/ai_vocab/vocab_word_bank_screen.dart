@@ -116,7 +116,7 @@ class _VocabWordBankScreenState extends State<VocabWordBankScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [accent, accent.withValues(alpha: 0.7)],
+                  colors: [accent, accent.withOpacity(0.7)],
                 ),
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -135,7 +135,7 @@ class _VocabWordBankScreenState extends State<VocabWordBankScreen> {
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: Colors.white.withValues(alpha: 0.07)),
+        child: Container(height: 1, color: Colors.white.withOpacity(0.07)),
       ),
     );
   }
@@ -146,19 +146,19 @@ class _VocabWordBankScreenState extends State<VocabWordBankScreen> {
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [accent.withValues(alpha: 0.15), accent.withValues(alpha: 0.05)],
+          colors: [accent.withOpacity(0.15), accent.withOpacity(0.05)],
           begin : Alignment.topLeft,
           end   : Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accent.withValues(alpha: 0.2)),
+        border: Border.all(color: accent.withOpacity(0.2)),
       ),
       child: Row(
         children: [
           Container(
             width: 48, height: 48,
             decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.15),
+              color: accent.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(Icons.library_books_rounded,
@@ -207,8 +207,8 @@ class _VocabWordBankScreenState extends State<VocabWordBankScreen> {
           borderRadius: BorderRadius.circular(14),
           border      : Border.all(
             color: _query.isNotEmpty
-                ? accent.withValues(alpha: 0.4)
-                : Colors.white.withValues(alpha: 0.08)),
+                ? accent.withOpacity(0.4)
+                : Colors.white.withOpacity(0.08)),
         ),
         child: TextField(
           controller: _searchCtrl,
@@ -257,11 +257,11 @@ class _VocabWordBankScreenState extends State<VocabWordBankScreen> {
               Container(
                 width: 80, height: 80,
                 decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.1),
+                  color: accent.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(Icons.library_books_outlined,
-                    color: accent.withValues(alpha: 0.4), size: 36),
+                    color: accent.withOpacity(0.4), size: 36),
               ),
               const SizedBox(height: 16),
               const Text(
@@ -344,7 +344,7 @@ class _WordCard extends StatelessWidget {
         decoration: BoxDecoration(
           color       : AppTheme.bgCard,
           borderRadius: BorderRadius.circular(14),
-          border      : Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          border      : Border.all(color: Colors.white.withOpacity(0.06)),
         ),
         child: Row(
           children: [
@@ -352,7 +352,7 @@ class _WordCard extends StatelessWidget {
             Container(
               width: 34, height: 34,
               decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
+                color: accent.withOpacity(0.12),
                 shape: BoxShape.circle,
               ),
               child: Center(
@@ -388,7 +388,7 @@ class _WordCard extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: 'Poppins',
                       fontSize  : 12,
-                      color     : accent.withValues(alpha: 0.85),
+                      color     : accent.withOpacity(0.85),
                     ),
                   ),
                 ],
@@ -512,7 +512,7 @@ class _WordDetailSheetState extends State<_WordDetailSheet> {
                   child: Container(
                     width: 40, height: 40,
                     decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.12),
+                      color: accent.withOpacity(0.12),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(Icons.copy_rounded,
@@ -523,7 +523,7 @@ class _WordDetailSheetState extends State<_WordDetailSheet> {
             ),
 
             const SizedBox(height: 16),
-            Container(height: 1, color: Colors.white.withValues(alpha: 0.08)),
+            Container(height: 1, color: Colors.white.withOpacity(0.08)),
             const SizedBox(height: 16),
 
             // Hinglish sentence
@@ -536,9 +536,9 @@ class _WordDetailSheetState extends State<_WordDetailSheet> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color       : accent.withValues(alpha: 0.08),
+                color       : accent.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(14),
-                border      : Border.all(color: accent.withValues(alpha: 0.18)),
+                border      : Border.all(color: accent.withOpacity(0.18)),
               ),
               child: Text(
                 '"${w.hindiSentence}"',
@@ -565,7 +565,7 @@ class _WordDetailSheetState extends State<_WordDetailSheet> {
                     gradient: _loadingAI
                         ? null
                         : LinearGradient(
-                            colors: [accent, accent.withValues(alpha: 0.7)],
+                            colors: [accent, accent.withOpacity(0.7)],
                             begin : Alignment.topLeft,
                             end   : Alignment.bottomRight,
                           ),
@@ -574,7 +574,7 @@ class _WordDetailSheetState extends State<_WordDetailSheet> {
                     boxShadow: _loadingAI
                         ? null
                         : [BoxShadow(
-                            color     : accent.withValues(alpha: 0.3),
+                            color     : accent.withOpacity(0.3),
                             blurRadius: 12, offset: const Offset(0, 4))],
                   ),
                   alignment: Alignment.center,
@@ -618,7 +618,7 @@ class _WordDetailSheetState extends State<_WordDetailSheet> {
                 decoration: BoxDecoration(
                   color       : AppTheme.bgSurface,
                   borderRadius: BorderRadius.circular(14),
-                  border      : Border.all(color: accent.withValues(alpha: 0.15)),
+                  border      : Border.all(color: accent.withOpacity(0.15)),
                 ),
                 child: SelectableText(
                   _aiResponse,
@@ -637,9 +637,9 @@ class _WordDetailSheetState extends State<_WordDetailSheet> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 11),
                   decoration: BoxDecoration(
-                    color       : accent.withValues(alpha: 0.1),
+                    color       : accent.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border      : Border.all(color: accent.withValues(alpha: 0.3)),
+                    border      : Border.all(color: accent.withOpacity(0.3)),
                   ),
                   alignment: Alignment.center,
                   child: Text(

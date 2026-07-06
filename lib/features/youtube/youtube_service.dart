@@ -316,6 +316,201 @@ class YoutubeService {
   }
 
   // ─────────────────────────────────────────────────────────────
+  //  VIDEO STREAM URL — for Watch Together in-app video playback
+  //
+  //  Strategy (needs combined audio+video):
+  //    1. Piped HLS   — all instances race in parallel, server-proxied,
+  //                     full A/V adaptive stream, ExoPlayer handles natively
+  //    2. yt_explode muxed — direct CDN MP4 up to 720p (fallback)
+  // ─────────────────────────────────────────────────────────────
+
+  Future<String?> getVideoStreamUrl(String videoId) async {
+    debugPrint('[YouTube] Fetching VIDEO stream for $videoId…');
+
+    // ── Round 1: Race InnerTube iOS muxed + all Piped HLS simultaneously ──
+    // InnerTube iOS gives direct CDN muxed URLs (up to 360p).
+    // Piped HLS gives proxied A/V combined stream (better for CGNAT).
+    // Whichever responds first wins.
+    debugPrint('[YouTube] VIDEO Round 1: InnerTube iOS + Piped HLS race…');
+    final round1Url = await _raceVideoRound1(videoId);
+    if (round1Url != null && round1Url.isNotEmpty) {
+      debugPrint('[YouTube] VIDEO ✓ Round 1 winner');
+      return round1Url;
+    }
+
+    // ── Round 2: yt_explode muxed (IP-locked but sometimes works) ──────────
+    debugPrint('[YouTube] VIDEO Round 1 failed → yt_explode muxed…');
+    for (int attempt = 0; attempt < 2; attempt++) {
+      try {
+        final manifest = await _yt.videos.streamsClient.getManifest(videoId);
+        final muxed    = manifest.muxed;
+        if (muxed.isNotEmpty) {
+          final url = muxed.withHighestBitrate().url.toString();
+          debugPrint('[YouTube] VIDEO ✓ yt_explode muxed');
+          return url;
+        }
+      } catch (e) {
+        debugPrint('[YouTube] yt_explode muxed attempt ${attempt + 1} failed: $e');
+        if (attempt == 0) await Future.delayed(const Duration(seconds: 1));
+      }
+    }
+    debugPrint('[YouTube] VIDEO: all strategies failed for $videoId');
+    return null;
+  }
+
+  /// Race: InnerTube iOS muxed video URL + all Piped HLS instances in parallel.
+  /// Returns the first non-null URL. Timeout = 14s.
+  Future<String?> _raceVideoRound1(String videoId) {
+    final completer = Completer<String?>();
+    final futures = <Future<String?>>[
+      _innerTubeIosVideoMuxedUrl(videoId), // NEW: direct muxed video from InnerTube
+      ..._pipedInstances.map((base) => _pipedVideoHls(base, videoId)),
+    ];
+    int pending = futures.length;
+    for (final f in futures) {
+      f.then((url) {
+        if (!completer.isCompleted && url != null && url.isNotEmpty) {
+          completer.complete(url);
+        }
+      }).catchError((_) {}).whenComplete(() {
+        pending--;
+        if (pending == 0 && !completer.isCompleted) completer.complete(null);
+      });
+    }
+    return completer.future.timeout(
+        const Duration(seconds: 14), onTimeout: () => null);
+  }
+
+  /// InnerTube iOS — fetch best muxed video+audio URL (up to 720p / 360p).
+  /// Uses the same iOS client as [_innerTubeIosStreamUrl] but prefers
+  /// muxed `formats` (combined A/V) over adaptive-only streams.
+  Future<String?> _innerTubeIosVideoMuxedUrl(String videoId) async {
+    try {
+      const clientVersion = '19.29.1';
+      const deviceModel   = 'iPhone16,2';
+
+      final resp = await http.post(
+        Uri.parse('https://www.youtube.com/youtubei/v1/player?prettyPrint=false'),
+        headers: {
+          'Content-Type':              'application/json',
+          'User-Agent':
+              'com.google.ios.youtube/$clientVersion ($deviceModel; U; CPU iOS 17_5_1 like Mac OS X)',
+          'X-YouTube-Client-Name':    '5',
+          'X-YouTube-Client-Version': clientVersion,
+          'Origin':                   'https://www.youtube.com',
+        },
+        body: jsonEncode({
+          'videoId': videoId,
+          'context': {
+            'client': {
+              'clientName':    'IOS',
+              'clientVersion': clientVersion,
+              'deviceModel':   deviceModel,
+              'hl':            'en',
+              'gl':            'US',
+            },
+          },
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (resp.statusCode != 200) return null;
+
+      final data          = jsonDecode(resp.body) as Map<String, dynamic>;
+      final streamingData = data['streamingData'] as Map<String, dynamic>?;
+      if (streamingData == null) return null;
+
+      // Prefer muxed `formats` — contain both audio and video in one URL.
+      // YouTube typically provides 360p and 720p here via iOS client.
+      final formats = List<Map>.from((streamingData['formats'] as List?) ?? []);
+      if (formats.isNotEmpty) {
+        // Sort by quality label descending (720p before 360p)
+        formats.sort((a, b) {
+          final qa = _qualityRank(a['qualityLabel'] as String? ?? '');
+          final qb = _qualityRank(b['qualityLabel'] as String? ?? '');
+          return qb.compareTo(qa);
+        });
+        for (final fmt in formats) {
+          final url = fmt['url'] as String?;
+          if (url != null && url.isNotEmpty) {
+            final quality = fmt['qualityLabel'] ?? 'unknown';
+            debugPrint('[YouTube] InnerTube iOS muxed video ✓ ($quality)');
+            return url;
+          }
+        }
+      }
+
+      // Fallback to highest-bitrate adaptive video stream
+      final adaptive = List<Map>.from((streamingData['adaptiveFormats'] as List?) ?? []);
+      final videoStreams = adaptive
+          .where((f) => (f['mimeType'] as String? ?? '').startsWith('video/mp4'))
+          .toList();
+      if (videoStreams.isNotEmpty) {
+        videoStreams.sort((a, b) {
+          final ba = (a['bitrate'] as num?)?.toInt() ?? 0;
+          final bb = (b['bitrate'] as num?)?.toInt() ?? 0;
+          return bb.compareTo(ba);
+        });
+        final url = videoStreams.first['url'] as String?;
+        if (url != null && url.isNotEmpty) {
+          debugPrint('[YouTube] InnerTube iOS adaptive video ✓');
+          return url;
+        }
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('[YouTube] InnerTube iOS video error: $e');
+      return null;
+    }
+  }
+
+  int _qualityRank(String label) {
+    if (label.contains('1080')) return 1080;
+    if (label.contains('720'))  return 720;
+    if (label.contains('480'))  return 480;
+    if (label.contains('360'))  return 360;
+    if (label.contains('240'))  return 240;
+    return 0;
+  }
+
+  Future<String?> _racePipedVideoHls(String videoId) {
+    final completer = Completer<String?>();
+    final futures   = _pipedInstances
+        .map((base) => _pipedVideoHls(base, videoId))
+        .toList();
+    int pending = futures.length;
+    for (final f in futures) {
+      f.then((url) {
+        if (!completer.isCompleted && url != null && url.isNotEmpty) {
+          completer.complete(url);
+        }
+      }).catchError((_) {}).whenComplete(() {
+        pending--;
+        if (pending == 0 && !completer.isCompleted) completer.complete(null);
+      });
+    }
+    return completer.future.timeout(
+      const Duration(seconds: 12), onTimeout: () => null);
+  }
+
+  Future<String?> _pipedVideoHls(String base, String videoId) async {
+    try {
+      final resp = await http
+          .get(Uri.parse('$base/streams/$videoId'),
+               headers: {'User-Agent': 'BeatFlow/1.0'})
+          .timeout(_kTimeout);
+      if (resp.statusCode != 200) return null;
+      final data   = jsonDecode(resp.body) as Map<String, dynamic>;
+      final hlsUrl = data['hls'] as String?;
+      if (hlsUrl != null && hlsUrl.isNotEmpty) {
+        debugPrint('[YouTube] Piped HLS ✓ ($base)');
+        return hlsUrl;
+      }
+      return null;
+    } catch (_) { return null; }
+  }
+
+  // ─────────────────────────────────────────────────────────────
   //  STREAM URL — v5: Cobalt + ALL 7 Piped instances race in parallel
   //
   //  WHY parallel:

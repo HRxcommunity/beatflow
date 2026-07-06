@@ -170,11 +170,11 @@ class _PremiumNavBar extends StatelessWidget {
       // 70dp for our buttons + system nav bar height below them
       height: 70 + bottomPadding,
       decoration: BoxDecoration(
-        color: hasBg ? AppTheme.bgCard.withValues(alpha: 0.75) : AppTheme.bgCard,
-        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.06), width: 1)),
+        color: hasBg ? AppTheme.bgCard.withOpacity(0.75) : AppTheme.bgCard,
+        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.06), width: 1)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
+            color: Colors.black.withOpacity(0.4),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -201,7 +201,7 @@ class _PremiumNavBar extends StatelessWidget {
                     duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
-                      color: isSelected ? accent.withValues(alpha: 0.15) : Colors.transparent,
+                      color: isSelected ? accent.withOpacity(0.15) : Colors.transparent,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -261,97 +261,18 @@ class _HomeTab extends StatelessWidget {
             ),
           ),
           actions: [
-            // ── Study AI button ──
-            Container(
-              margin: const EdgeInsets.only(right: 6),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFF10B981).withValues(alpha: 0.20),
-                    const Color(0xFF10B981).withValues(alpha: 0.08),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: const Color(0xFF10B981).withValues(alpha: 0.40),
-                ),
-              ),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () => context.push(AppRouter.studyAi),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('📚', style: TextStyle(fontSize: 13)),
-                      SizedBox(width: 4),
-                      Text(
-                        'Study AI',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF10B981),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // ── AI Vocab Chat button ──
-            Container(
-              margin: const EdgeInsets.only(right: 6),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
-                ),
-              ),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () => context.push(AppRouter.aiVocab),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.auto_awesome_rounded,
-                        size: 15,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Vocab AI',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // ── Settings button ──
+            // ── HRxBeat Apps Menu button ──────────────────────────
+            const _AppMenuButton(),
+            // ── Settings button ───────────────────────────────────
             Container(
               margin: const EdgeInsets.only(right: 12),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: Colors.white.withOpacity(0.08),
                 shape: BoxShape.circle,
               ),
               child: IconButton(
-                icon: const Icon(Icons.settings_outlined, color: Colors.white70, size: 20),
+                icon: const Icon(Icons.settings_outlined,
+                    color: Colors.white70, size: 20),
                 onPressed: () => context.push(AppRouter.settings),
               ),
             ),
@@ -405,7 +326,7 @@ class _HomeTab extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.05),
+                              color: Colors.white.withOpacity(0.05),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(Icons.music_off_rounded, size: 56, color: Colors.white24),
@@ -454,19 +375,19 @@ class _TogetherHomeCard extends StatelessWidget {
                   end: Alignment.bottomRight,
                   colors: togetherState.isInSession
                       ? [
-                          const Color(0xFF22C55E).withValues(alpha: 0.20),
-                          accent.withValues(alpha: 0.10),
+                          const Color(0xFF22C55E).withOpacity(0.20),
+                          accent.withOpacity(0.10),
                         ]
                       : [
-                          accent.withValues(alpha: 0.15),
-                          AppTheme.accentCyan.withValues(alpha: 0.08),
+                          accent.withOpacity(0.15),
+                          AppTheme.accentCyan.withOpacity(0.08),
                         ],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: togetherState.isInSession
-                      ? const Color(0xFF22C55E).withValues(alpha: 0.40)
-                      : accent.withValues(alpha: 0.25),
+                      ? const Color(0xFF22C55E).withOpacity(0.40)
+                      : accent.withOpacity(0.25),
                   width: 1,
                 ),
               ),
@@ -478,8 +399,8 @@ class _TogetherHomeCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(colors: [
-                        accent.withValues(alpha: 0.4),
-                        AppTheme.accentCyan.withValues(alpha: 0.25),
+                        accent.withOpacity(0.4),
+                        AppTheme.accentCyan.withOpacity(0.25),
                       ]),
                     ),
                     child: const Icon(
@@ -518,7 +439,7 @@ class _TogetherHomeCard extends StatelessWidget {
                   ),
                   Icon(
                     Icons.chevron_right_rounded,
-                    color: accent.withValues(alpha: 0.6),
+                    color: accent.withOpacity(0.6),
                   ),
                 ],
               ),
@@ -558,7 +479,7 @@ class _SectionHeader extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.07),
+                  color: Colors.white.withOpacity(0.07),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.refresh_rounded, size: 16, color: AppTheme.textSecondary),
@@ -616,17 +537,17 @@ class _PremiumHorizontalList extends StatelessWidget {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          accent.withValues(alpha: 0.2),
+                          accent.withOpacity(0.2),
                           AppTheme.bgSurface,
                         ],
                       ),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.07),
+                        color: Colors.white.withOpacity(0.07),
                         width: 1,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: accent.withValues(alpha: 0.1),
+                          color: accent.withOpacity(0.1),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -646,7 +567,7 @@ class _PremiumHorizontalList extends StatelessWidget {
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: accent.withValues(alpha: 0.85),
+                              color: accent.withOpacity(0.85),
                             ),
                             child: const Icon(Icons.play_arrow_rounded, size: 16, color: Colors.white),
                           ),
@@ -834,10 +755,10 @@ class _AlbumCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color:         baseColor.withValues(alpha: cardOpacity),
+          color:         baseColor.withOpacity(cardOpacity),
           borderRadius:  BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withValues(alpha: cardOpacity * 0.07),
+            color: Colors.white.withOpacity(cardOpacity * 0.07),
             width: 1,
           ),
         ),
@@ -849,11 +770,11 @@ class _AlbumCard extends StatelessWidget {
               decoration: BoxDecoration(
                 shape:    BoxShape.circle,
                 gradient: RadialGradient(colors: [
-                  accent.withValues(alpha: 0.25),
+                  accent.withOpacity(0.25),
                   AppTheme.bgSurface,
                 ]),
               ),
-              child: Icon(Icons.album_rounded, size: 38, color: accent.withValues(alpha: 0.6)),
+              child: Icon(Icons.album_rounded, size: 38, color: accent.withOpacity(0.6)),
             ),
             const SizedBox(height: 10),
             Padding(
@@ -939,9 +860,9 @@ class _ArtistTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color:        baseColor.withValues(alpha: cardOpacity),
+        color:        baseColor.withOpacity(cardOpacity),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: cardOpacity * 0.06)),
+        border: Border.all(color: Colors.white.withOpacity(cardOpacity * 0.06)),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -950,10 +871,10 @@ class _ArtistTile extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: LinearGradient(
-              colors: [accent.withValues(alpha: 0.3), AppTheme.bgSurface],
+              colors: [accent.withOpacity(0.3), AppTheme.bgSurface],
             ),
           ),
-          child: Icon(Icons.person_rounded, color: accent.withValues(alpha: 0.8), size: 22),
+          child: Icon(Icons.person_rounded, color: accent.withOpacity(0.8), size: 22),
         ),
         title: Text(
           name,
@@ -965,7 +886,7 @@ class _ArtistTile extends StatelessWidget {
         ),
         trailing: Icon(
           Icons.chevron_right_rounded,
-          color: AppTheme.textSecondary.withValues(alpha: 0.5),
+          color: AppTheme.textSecondary.withOpacity(0.5),
         ),
         onTap: () => context.push('${AppRouter.artist}/${Uri.encodeComponent(name)}'),
       ),
@@ -997,7 +918,7 @@ class _PlaylistsTab extends StatelessWidget {
                 Container(
                   margin: const EdgeInsets.only(right: 12),
                   decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.15),
+                    color: accent.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: IconButton(
@@ -1016,10 +937,10 @@ class _PlaylistsTab extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.05),
+                          color: Colors.white.withOpacity(0.05),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.queue_music_rounded, size: 48, color: accent.withValues(alpha: 0.4)),
+                        child: Icon(Icons.queue_music_rounded, size: 48, color: accent.withOpacity(0.4)),
                       ),
                       const SizedBox(height: 16),
                       const Text('No playlists yet',
@@ -1088,6 +1009,497 @@ class _PlaylistsTab extends StatelessWidget {
   }
 }
 
+// ── Apps Menu Icon Button ─────────────────────────────────────────────────────
+// Settings icon ke baad wala sparkle button — tap karne par HRxBeat sheet open ho.
+
+class _AppMenuButton extends StatelessWidget {
+  const _AppMenuButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return Container(
+      margin: const EdgeInsets.only(right: 6),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            accent.withOpacity(0.25),
+            accent.withOpacity(0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: accent.withOpacity(0.35)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => _HRxAppsSheet.show(context),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.apps_rounded, size: 15, color: accent),
+              const SizedBox(width: 5),
+              Text(
+                'Apps',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: accent,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── HRxBeat Apps Bottom Sheet ─────────────────────────────────────────────────
+// Premium modal sheet — app branding + 3 feature shortcuts
+
+class _HRxAppsSheet extends StatelessWidget {
+  const _HRxAppsSheet();
+
+  /// Call this to show the sheet
+  static void show(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.65),
+      builder: (_) => const _HRxAppsSheet(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent      = Theme.of(context).colorScheme.primary;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bottomPad   = MediaQuery.of(context).padding.bottom;
+
+    return Container(
+      width: screenWidth,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0C0C1E),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withOpacity(0.15),
+            blurRadius: 40,
+            spreadRadius: 4,
+            offset: const Offset(0, -8),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Drag handle ──────────────────────────────────────────
+          const SizedBox(height: 12),
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // ── HRxBeat Music branding ───────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              children: [
+                // Logo container
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        accent,
+                        const Color(0xFF0EA5E9),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: accent.withOpacity(0.4),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Outer glow ring
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.25),
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.music_note_rounded,
+                        color: Colors.white,
+                        size: 26,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+                // App name + tagline
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                          ),
+                          children: [
+                            const TextSpan(
+                              text: 'HRx',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            TextSpan(
+                              text: 'Beat',
+                              style: TextStyle(color: accent),
+                            ),
+                            const TextSpan(
+                              text: ' Music',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(colors: [
+                                const Color(0xFFFFD700).withOpacity(0.2),
+                                const Color(0xFFFF8C00).withOpacity(0.15),
+                              ]),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFFFFD700).withOpacity(0.35),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.workspace_premium_rounded,
+                                    size: 10,
+                                    color: Color(0xFFFFD700)),
+                                SizedBox(width: 3),
+                                Text(
+                                  'PREMIUM',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFFFFD700),
+                                    letterSpacing: 1.0,
+                                    fontFamily: 'Poppins',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text(
+                            'AI-Powered Suite',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.white38,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ── Divider ───────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [
+                  Colors.transparent,
+                  Colors.white.withOpacity(0.1),
+                  Colors.white.withOpacity(0.1),
+                  Colors.transparent,
+                ]),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ── Section label ─────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.only(left: 24, bottom: 14),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'QUICK LAUNCH',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: accent.withOpacity(0.6),
+                  letterSpacing: 1.8,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+            ),
+          ),
+
+          // ── 3 Feature Cards row ───────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                // ── Vocab AI card ──────────────────────────────
+                Expanded(
+                  child: _FeatureCard(
+                    icon: Icons.auto_awesome_rounded,
+                    iconBgColors: [accent, accent.withOpacity(0.5)],
+                    iconColor: Colors.white,
+                    label: 'Vocab AI',
+                    sublabel: 'SSC • Vocab',
+                    badge: 'AI',
+                    badgeColor: accent,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push(AppRouter.aiVocab);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // ── Study AI card ──────────────────────────────
+                Expanded(
+                  child: _FeatureCard(
+                    icon: Icons.school_rounded,
+                    iconBgColors: const [
+                      Color(0xFF10B981),
+                      Color(0xFF059669),
+                    ],
+                    iconColor: Colors.white,
+                    label: 'Study AI',
+                    sublabel: 'PDF • MCQ',
+                    badge: 'AI',
+                    badgeColor: const Color(0xFF10B981),
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push(AppRouter.studyAi);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // ── Downloader card ────────────────────────────
+                Expanded(
+                  child: _FeatureCard(
+                    icon: Icons.download_rounded,
+                    iconBgColors: const [
+                      Color(0xFFEF4444),
+                      Color(0xFFDC2626),
+                    ],
+                    iconColor: Colors.white,
+                    label: 'Download',
+                    sublabel: 'Video • MP3',
+                    badge: null,
+                    badgeColor: null,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push(AppRouter.downloader);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ── Bottom glow strip ──────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [
+                  Colors.transparent,
+                  accent.withOpacity(0.3),
+                  Colors.transparent,
+                ]),
+              ),
+            ),
+          ),
+
+          SizedBox(height: 12 + bottomPad),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Feature Card widget ───────────────────────────────────────────────────────
+// Ek feature card — icon, label, sublabel, optional badge
+
+class _FeatureCard extends StatelessWidget {
+  final IconData icon;
+  final List<Color> iconBgColors;
+  final Color iconColor;
+  final String label;
+  final String sublabel;
+  final String? badge;
+  final Color? badgeColor;
+  final VoidCallback onTap;
+
+  const _FeatureCard({
+    required this.icon,
+    required this.iconBgColors,
+    required this.iconColor,
+    required this.label,
+    required this.sublabel,
+    required this.badge,
+    required this.badgeColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.08),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Icon with gradient bg
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: iconBgColors,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: iconBgColors[0].withOpacity(0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(icon, color: iconColor, size: 26),
+                ),
+                // Badge (AI tag)
+                if (badge != null)
+                  Positioned(
+                    top: -4,
+                    right: -4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: badgeColor,
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: [
+                          BoxShadow(
+                            color: badgeColor!.withOpacity(0.4),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        badge!,
+                        style: const TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Label
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                fontFamily: 'Poppins',
+              ),
+            ),
+            const SizedBox(height: 2),
+            // Sublabel
+            Text(
+              sublabel,
+              style: const TextStyle(
+                fontSize: 9,
+                color: Colors.white38,
+                fontFamily: 'Poppins',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Extracted widget — owns its own BuildContext so context.select is safe.
 /// Replaces the inlined item builder that caused the Provider assertion:
 /// "Tried to use context.select inside a SliverList/SliderGridView."
@@ -1110,9 +1522,9 @@ class _PlaylistTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color:        baseColor.withValues(alpha: cardOpacity),
+        color:        baseColor.withOpacity(cardOpacity),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: cardOpacity * 0.06)),
+        border: Border.all(color: Colors.white.withOpacity(cardOpacity * 0.06)),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -1121,10 +1533,10 @@ class _PlaylistTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             gradient: LinearGradient(
-              colors: [accent.withValues(alpha: 0.3), AppTheme.bgSurface],
+              colors: [accent.withOpacity(0.3), AppTheme.bgSurface],
             ),
           ),
-          child: Icon(Icons.queue_music_rounded, color: accent.withValues(alpha: 0.8)),
+          child: Icon(Icons.queue_music_rounded, color: accent.withOpacity(0.8)),
         ),
         title: Text(
           playlist.name,

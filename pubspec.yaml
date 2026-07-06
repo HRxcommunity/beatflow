@@ -63,6 +63,22 @@ dependencies:
   url_launcher: ^6.3.0
   http: ^1.2.2
 
+  # ── Universal Video Downloader ──────────────────────────────────
+  # Download with progress tracking
+  dio: ^5.7.0
+
+  # Receive shared URLs from Chrome / Instagram / YouTube etc.
+  receive_sharing_intent: ^1.8.1
+
+  # Share downloaded files to other apps
+  share_plus: ^10.0.0
+
+  # Media scan so files appear in Gallery / Files app
+  media_scanner: ^2.1.0
+
+  # Open downloaded video/audio files
+  open_file: ^3.3.2
+
   # Study AI — PDF text extraction (Syncfusion community license, free up to $1M revenue)
   syncfusion_flutter_pdf: ^25.1.0
 

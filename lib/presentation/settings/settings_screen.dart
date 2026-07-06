@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'settings_bloc.dart';
+import '../../core/config/groq_config.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/app_theme.dart';
@@ -74,7 +75,7 @@ class SettingsScreen extends StatelessWidget {
                             width: 3,
                           ),
                           boxShadow: selected
-                              ? [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 8)]
+                              ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 8)]
                               : null,
                         ),
                         child: selected
@@ -112,6 +113,10 @@ class SettingsScreen extends StatelessWidget {
               ),
               const Divider(),
 
+              // ── AI / Groq API Key ─────────────────────────────
+              const _SectionTitle('AI Settings'),
+              _GroqApiKeyTile(currentKey: state.groqApiKey),
+              const Divider(),
               // ── About ─────────────────────────────────────────────
               const _SectionTitle('About'),
               // BUG-SET01 FIX: Read version dynamically from package_info_plus
@@ -196,7 +201,7 @@ class _BackgroundThemeSection extends StatelessWidget {
                       ),
                     ),
                   if (hasImage)
-                    Container(color: Colors.black.withValues(alpha: state.backgroundDimOpacity)),
+                    Container(color: Colors.black.withOpacity(state.backgroundDimOpacity)),
                   Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -232,7 +237,7 @@ class _BackgroundThemeSection extends StatelessWidget {
                   label: const Text('From Gallery'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: accent,
-                    side: BorderSide(color: accent.withValues(alpha: 0.5)),
+                    side: BorderSide(color: accent.withOpacity(0.5)),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
                   ),
@@ -360,7 +365,7 @@ class _SongCardStyleSection extends StatelessWidget {
                           width: selected ? 2.5 : 1,
                         ),
                         boxShadow: selected
-                            ? [BoxShadow(color: accent.withValues(alpha: 0.4), blurRadius: 8)]
+                            ? [BoxShadow(color: accent.withOpacity(0.4), blurRadius: 8)]
                             : null,
                       ),
                       child: selected
@@ -447,10 +452,10 @@ class _SongCardPreview extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: baseColor.withValues(alpha: state.songCardOpacity),
+        color: baseColor.withOpacity(state.songCardOpacity),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.white.withValues(alpha: state.songCardOpacity * 0.08),
+          color: Colors.white.withOpacity(state.songCardOpacity * 0.08),
         ),
       ),
       child: Row(
@@ -483,7 +488,7 @@ class _SongCardPreview extends StatelessWidget {
               style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
           const SizedBox(width: 4),
           Icon(Icons.more_vert_rounded,
-              color: AppTheme.textSecondary.withValues(alpha: 0.5), size: 18),
+              color: AppTheme.textSecondary.withOpacity(0.5), size: 18),
         ],
       ),
     );
@@ -578,14 +583,14 @@ class _TogetherBgSection extends StatelessWidget {
                       child: Center(
                         child: Icon(
                           Icons.favorite_rounded,
-                          color: Colors.pinkAccent.withValues(alpha: 0.3),
+                          color: Colors.pinkAccent.withOpacity(0.3),
                           size: 48,
                         ),
                       ),
                     ),
                   if (hasImage)
                     Container(
-                        color: Colors.black.withValues(alpha: state.togetherBgDimOpacity)),
+                        color: Colors.black.withOpacity(state.togetherBgDimOpacity)),
                   Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -623,7 +628,7 @@ class _TogetherBgSection extends StatelessWidget {
                   label: const Text('From Gallery'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: accent,
-                    side: BorderSide(color: accent.withValues(alpha: 0.5)),
+                    side: BorderSide(color: accent.withOpacity(0.5)),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
                   ),
@@ -712,7 +717,7 @@ class _VersionTile extends StatelessWidget {
           trailing: Text(
             'v$version ($build)',
             style: TextStyle(
-              color      : Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+              color      : Theme.of(context).colorScheme.primary.withOpacity(0.8),
               fontFamily : 'Poppins',
               fontSize   : 13,
               fontWeight : FontWeight.w600,
@@ -1043,7 +1048,7 @@ class _ModePill extends StatelessWidget {
             const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
         decoration: BoxDecoration(
           color:
-              selected ? accent.withValues(alpha: 0.18) : Colors.transparent,
+              selected ? accent.withOpacity(0.18) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected ? accent : Colors.white24,
@@ -1065,6 +1070,222 @@ class _ModePill extends StatelessWidget {
                     color: selected ? accent : Colors.white54)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Groq API Key Tile ─────────────────────────────────────────────────────────
+// User apni Groq API key yahan enter kare.
+// Empty rakha to hardcoded fallback key use hogi automatically.
+
+class _GroqApiKeyTile extends StatefulWidget {
+  final String currentKey;
+  const _GroqApiKeyTile({required this.currentKey});
+
+  @override
+  State<_GroqApiKeyTile> createState() => _GroqApiKeyTileState();
+}
+
+class _GroqApiKeyTileState extends State<_GroqApiKeyTile> {
+  late final TextEditingController _ctrl;
+  bool _obscure = true;
+  bool _dirty   = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.currentKey);
+    _ctrl.addListener(() {
+      final changed = _ctrl.text.trim() != widget.currentKey.trim();
+      if (changed != _dirty) setState(() => _dirty = changed);
+    });
+  }
+
+  @override
+  void didUpdateWidget(_GroqApiKeyTile old) {
+    super.didUpdateWidget(old);
+    if (old.currentKey != widget.currentKey && !_dirty) {
+      _ctrl.text = widget.currentKey;
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final key = _ctrl.text.trim();
+    context.read<SettingsBloc>().add(SettingsGroqKeyChanged(key));
+    setState(() => _dirty = false);
+    FocusScope.of(context).unfocus();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          key.isEmpty
+              ? '\u2705 Groq key clear \u2014 hardcoded fallback use hogi'
+              : '\u2705 Groq key saved!',
+          style: const TextStyle(color: Colors.white),
+        ),
+        backgroundColor: key.isEmpty ? Colors.orange : Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _clear() {
+    _ctrl.clear();
+    _save();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent     = Theme.of(context).colorScheme.primary;
+    final currentKey = widget.currentKey;
+    final isUsingOwn = currentKey.trim().isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Status badge ─────────────────────────────────────
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isUsingOwn
+                      ? Colors.green.withOpacity(0.15)
+                      : accent.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isUsingOwn
+                        ? Colors.green.withOpacity(0.4)
+                        : accent.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isUsingOwn
+                          ? Icons.vpn_key_rounded
+                          : Icons.key_off_outlined,
+                      size: 13,
+                      color: isUsingOwn ? Colors.green : accent,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      isUsingOwn ? 'Custom key active' : 'Using fallback key',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isUsingOwn ? Colors.green : accent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // ── Text field ────────────────────────────────────────
+          TextField(
+            controller: _ctrl,
+            obscureText: _obscure,
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 13,
+              color: Colors.white,
+              letterSpacing: 0.5,
+            ),
+            decoration: InputDecoration(
+              hintText: 'gsk_xxxxxxxxxxxxxxxxxxxx',
+              hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.05),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Colors.white12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Colors.white12),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: accent, width: 1.5),
+              ),
+              contentPadding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _obscure
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      size: 18,
+                      color: Colors.white38,
+                    ),
+                    onPressed: () => setState(() => _obscure = !_obscure),
+                    tooltip: _obscure ? 'Show' : 'Hide',
+                  ),
+                  if (_ctrl.text.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.clear_rounded,
+                          size: 18, color: Colors.white38),
+                      onPressed: _clear,
+                      tooltip: 'Clear',
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // ── Helper text ───────────────────────────────────────
+          Text(
+            isUsingOwn
+                ? '\U0001f511 Apni key use ho rahi hai sab AI features mein'
+                : '\U0001f4a1 Empty rakhoge to hardcoded fallback key use hogi \u2014 sab kaam karega',
+            style: const TextStyle(fontSize: 11, color: Colors.white38),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Save button ───────────────────────────────────────
+          if (_dirty)
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _save,
+                icon: const Icon(Icons.save_rounded, size: 16),
+                label: const Text('Save Key'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: accent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Free key: console.groq.com',
+              style: TextStyle(
+                fontSize: 10,
+                color: accent.withOpacity(0.5),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

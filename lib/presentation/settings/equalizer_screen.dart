@@ -15,31 +15,6 @@ class EqualizerScreen extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // BUG-MED-03 FIX: EQ values save to Hive but just_audio has no
-              // built-in EQ API — audio DSP requires a native plugin. Show a
-              // disclaimer so users know sliders are visual-only for now.
-              Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.info_outline_rounded, color: Colors.orange, size: 16),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'EQ presets are saved but audio DSP processing requires '
-                        'a native plugin. Visual only for now — full EQ coming soon.',
-                        style: TextStyle(color: Colors.orange, fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               // Enable toggle
               SwitchListTile(
                 title: const Text('Equalizer'),

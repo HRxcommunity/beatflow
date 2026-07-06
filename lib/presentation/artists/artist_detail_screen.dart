@@ -25,8 +25,8 @@ class ArtistDetailScreen extends StatelessWidget {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: hasBg
-            ? AppTheme.bgCard.withValues(alpha: 0.75)
-            : AppTheme.bgCard.withValues(alpha: 0.92),
+            ? AppTheme.bgCard.withOpacity(0.75)
+            : AppTheme.bgCard.withOpacity(0.92),
         elevation: 0,
         // ✅ FIX: context.pop() works with GoRouter (Navigator.pop does not)
         leading: IconButton(
@@ -268,7 +268,7 @@ class _ArtistHeaderBanner extends StatelessWidget {
                 end: Alignment.bottomCenter,
                 colors: [
                   Colors.transparent,
-                  AppTheme.bgDeep.withValues(alpha: 0.7),
+                  AppTheme.bgDeep.withOpacity(0.7),
                   AppTheme.bgDeep,
                 ],
                 stops: const [0, 0.5, 1],

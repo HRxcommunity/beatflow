@@ -53,7 +53,7 @@ class _SearchScreenState extends State<SearchScreen> {
             border: InputBorder.none,
             hintStyle: TextStyle(
               fontFamily: 'Poppins',
-              color: cs.onSurface.withValues(alpha: 0.4),
+              color: cs.onSurface.withOpacity(0.4),
             ),
             filled: false,
           ),
@@ -82,14 +82,14 @@ class _SearchScreenState extends State<SearchScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.search_off_rounded,
-                      size: 64, color: cs.onSurface.withValues(alpha: 0.3)),
+                      size: 64, color: cs.onSurface.withOpacity(0.3)),
                   const SizedBox(height: 16),
                   Text(
                     'No results for "$_query"',
                     style: TextStyle(
                       fontFamily: 'Poppins',
                       fontSize: 16,
-                      color: cs.onSurface.withValues(alpha: 0.5),
+                      color: cs.onSurface.withOpacity(0.5),
                     ),
                   ),
                 ],
@@ -296,7 +296,7 @@ class _BrowseChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
+        color: color.withOpacity(0.15),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -375,7 +375,7 @@ class _SongSearchTile extends StatelessWidget {
         style: TextStyle(
           fontFamily: 'Poppins',
           fontSize: 12,
-          color: cs.onSurface.withValues(alpha: 0.55),
+          color: cs.onSurface.withOpacity(0.55),
         ),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
@@ -385,7 +385,7 @@ class _SongSearchTile extends StatelessWidget {
         style: TextStyle(
           fontFamily: 'Poppins',
           fontSize: 12,
-          color: cs.onSurface.withValues(alpha: 0.4),
+          color: cs.onSurface.withOpacity(0.4),
         ),
       ),
       onTap: onTap,
@@ -472,7 +472,7 @@ class _ArtistSearchTile extends StatelessWidget {
         style: TextStyle(
           fontFamily: 'Poppins',
           fontSize: 12,
-          color: cs.onSurface.withValues(alpha: 0.55),
+          color: cs.onSurface.withOpacity(0.55),
         ),
       ),
       trailing: const Icon(Icons.chevron_right_rounded),

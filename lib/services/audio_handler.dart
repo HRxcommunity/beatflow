@@ -77,13 +77,6 @@ class BeatFlowAudioHandler extends BaseAudioHandler
 
   Future<void> playSongs(List<SongEntity> songs, int initialIndex,
       {bool gapless = true}) async {
-    // BUG-CRIT-04 FIX: guard against empty list → ConcatenatingAudioSource
-    // throws RangeError when initialIndex is out of range on empty source.
-    if (songs.isEmpty) {
-      debugPrint('[AudioHandler] playSongs: empty list — ignoring');
-      return;
-    }
-    final clampedIndex = initialIndex.clamp(0, songs.length - 1);
     final items = songs.map(_songToMediaItem).toList();
     queue.add(items);
 
@@ -101,7 +94,7 @@ class BeatFlowAudioHandler extends BaseAudioHandler
           children: sources,
           useLazyPreparation: !gapless,
         ),
-        initialIndex: clampedIndex, // BUG-CRIT-04 FIX: clamped to prevent RangeError
+        initialIndex: initialIndex,
       );
       await _player.setShuffleModeEnabled(false);
       await _player.play();

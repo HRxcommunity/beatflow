@@ -62,12 +62,12 @@ class _TogetherSessionBadgeState extends State<TogetherSessionBadge>
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [accent, AppTheme.accentCyan.withValues(alpha: 0.8)],
+                  colors: [accent, AppTheme.accentCyan.withOpacity(0.8)],
                 ),
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
-                    color: accent.withValues(alpha: 0.4),
+                    color: accent.withOpacity(0.4),
                     blurRadius: 14,
                     offset: const Offset(0, 4),
                   ),

@@ -159,23 +159,13 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerStateEntity> {
 
   // BUG-P01 FIX: sync PlayerBloc currentSong from handler's mediaItem when
   // the local queue doesn't have a matching entry (YouTube / Together mode).
-  // BUG-HIGH-01 FIX: also override when audio source is a single YouTube track
-  // (not a ConcatenatingAudioSource) even if idx < queue.length, because the
-  // host's local queue is still loaded while a YouTube Together track plays.
   void _syncMediaItem(Emitter<PlayerStateEntity> emit) {
     final mi = _handler.mediaItem.value;
     if (mi == null) return;
     final p   = _handler.player;
     final idx = p.currentIndex ?? 0;
-
-    // Detect whether the current audio source is a single YouTube item
-    // (not the ConcatenatingAudioSource local library queue).
-    final src = p.audioSource;
-    final isSingleYouTubeSource = src != null && src is! ConcatenatingAudioSource;
-
-    // Local queue covers the index AND we're not in YouTube-single mode → skip
-    if (idx < state.queue.length && !isSingleYouTubeSource) return;
-
+    // Only override when local queue doesn't cover the current index
+    if (idx < state.queue.length) return;
     // Build a synthetic SongEntity so the mini-player can display the
     // YouTube track info without a PlayerPlay event being dispatched.
     final ytSong = SongEntity(

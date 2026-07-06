@@ -157,13 +157,13 @@ class _AvatarCircle extends StatelessWidget {
         shape: BoxShape.circle,
         gradient: LinearGradient(
           begin: Alignment.topLeft, end: Alignment.bottomRight,
-          colors: [color, color.withValues(alpha: 0.55)],
+          colors: [color, color.withOpacity(0.55)],
         ),
         boxShadow: isPlaying
-            ? [BoxShadow(color: color.withValues(alpha: 0.45), blurRadius: 18, spreadRadius: 2)]
-            : [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 6)],
+            ? [BoxShadow(color: color.withOpacity(0.45), blurRadius: 18, spreadRadius: 2)]
+            : [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 6)],
         border: Border.all(
-          color: isPlaying ? color.withValues(alpha: 0.7) : Colors.white12,
+          color: isPlaying ? color.withOpacity(0.7) : Colors.white12,
           width: isPlaying ? 2 : 1,
         ),
       ),
@@ -184,7 +184,7 @@ class _AvatarCircle extends StatelessWidget {
                 width: size * 0.30, height: size * 0.30,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle, color: AppTheme.bgCard,
-                  border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
+                  border: Border.all(color: color.withOpacity(0.5), width: 1),
                 ),
                 child: Icon(Icons.music_note_rounded,
                     size: size * 0.16, color: color),
@@ -216,7 +216,7 @@ class _MiniWaveBars extends StatelessWidget {
           margin:   const EdgeInsets.symmetric(horizontal: 1),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(2),
-            color:        color.withValues(alpha: 0.85),
+            color:        color.withOpacity(0.85),
           ),
         )).toList(),
       ),

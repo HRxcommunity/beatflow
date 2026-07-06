@@ -256,7 +256,11 @@ class TogetherState extends Equatable {
     this.inVideoCall = false,
   });
 
-  bool get isInSession  => status == TogetherStatus.active && session != null;
+  // BUG-SESSION-UPLOAD FIX: include 'uploading' so the active session screen
+  // stays visible when a song upload starts (status switches active→uploading).
+  // Previously isInSession=false during upload caused the UI to flip back to
+  // the landing page ("dobara loading" / "session se bahar aata hai" bug).
+  bool get isInSession  => (status == TogetherStatus.active || status == TogetherStatus.uploading) && session != null;
   bool get isLoading    => status == TogetherStatus.loading ||
                            status == TogetherStatus.uploading;
   bool get isUploading  => status == TogetherStatus.uploading;
@@ -304,7 +308,6 @@ class TogetherState extends Equatable {
         session?.songId,
         session?.streamUrl,
         session?.memberCount,
-        session?.onlineCount,   // BUG-HIGH-02 FIX: trigger rebuild on online status change
         session?.chatMessages.length,
         session?.pendingHostRequest?.status,
         session?.ownerId,
@@ -450,10 +453,12 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
             error:  'Sign-in failed. Try again.'));
         return;
       }
+      // BUG-NAME FIX: use event.displayName directly so the UI reflects the
+      // typed name immediately, without relying on Firebase cache to update.
       emit(state.copyWith(
         status:      TogetherStatus.idle,
         uid:         user.uid,
-        displayName: _auth.displayName,
+        displayName: event.displayName.isNotEmpty ? event.displayName : _auth.displayName,
       ));
     } catch (e) {
       emit(state.copyWith(status: TogetherStatus.error, error: e.toString()));
@@ -1390,7 +1395,7 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
       // ── Push to Firestore so guests sync ──
       await _sessionService.pushPlaybackState(
         sessionId:      session.sessionId,
-        songId:         'yt:${track.videoId}', // BUG-HIGH-03 FIX: add yt: prefix for consistency
+        songId:         track.videoId,
         songTitle:      track.title,
         songArtist:     track.artist,
         // BUG-010 FIX: store stable videoId as songData (prefixed 'yt:') instead
@@ -1425,35 +1430,49 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
   Future<void> _onPlayYoutubeVideo(
       TogetherPlayYoutubeVideo event, Emitter<TogetherState> emit) async {
     final session = state.session;
-    if (session == null || !state.isOwner) return; // BUG-CRIT-01 FIX: guest hijack guard
+    if (session == null) return;
 
     final track = event.track;
     emit(state.copyWith(ytLoading: true, clearError: true));
 
     try {
-      // Push isVideo=true to Firestore — guests detect this and open
-      // a YouTube WebView player with the same videoId.
-      // No audio stream URL needed: each guest's WebView plays YouTube directly.
+      // Fetch real video stream URL — no WebView, no embedding restrictions.
+      debugPrint('[Together] Fetching video stream for ${track.videoId}…');
+      final videoStreamUrl =
+          await _youtubeService.getVideoStreamUrl(track.videoId);
+
+      if (isClosed) return;
+
+      if (videoStreamUrl == null || videoStreamUrl.isEmpty) {
+        emit(state.copyWith(
+          ytLoading: false,
+          error: 'Could not fetch video stream. Try another video.',
+        ));
+        return;
+      }
+
+      // songData keeps 'yt:' prefix for content identification;
+      // streamUrl is the real HLS/MP4 URL for VideoPlayerController.
       await _sessionService.pushPlaybackState(
         sessionId:      session.sessionId,
         songId:         'yt:${track.videoId}',
         songTitle:      track.title,
         songArtist:     track.artist,
         songData:       'yt:${track.videoId}',
-        streamUrl:      'yt:${track.videoId}',
+        streamUrl:      videoStreamUrl,
         songDurationMs: track.duration.inMilliseconds,
         positionMs:     0,
         isPlaying:      true,
         isVideo:        true,
       );
 
-      debugPrint('[Together] YouTube video pushed: ${track.title} (${track.videoId})');
+      debugPrint('[Together] YouTube video pushed (in-app stream): ${track.title}');
     } catch (e) {
       debugPrint('[Together] YouTube video push error: $e');
-      emit(state.copyWith(
+      if (!isClosed) emit(state.copyWith(
           error: 'Could not share YouTube video. Check connection.'));
     } finally {
-      emit(state.copyWith(ytLoading: false));
+      if (!isClosed) emit(state.copyWith(ytLoading: false));
     }
   }
 
@@ -1472,6 +1491,20 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
     // ── YouTube Watch Together ────────────────────────────────
     if (event.ytTrack != null) {
       final track = event.ytTrack!;
+
+      // Fetch real video stream URL before creating session.
+      debugPrint('[Together] Fetching video stream for Watch Together: ${track.videoId}');
+      final videoStreamUrl =
+          await _youtubeService.getVideoStreamUrl(track.videoId);
+
+      if (videoStreamUrl == null || videoStreamUrl.isEmpty) {
+        emit(state.copyWith(
+          status: TogetherStatus.error,
+          error:  'Could not fetch video stream. Please try another video.',
+        ));
+        return;
+      }
+
       final session = await _sessionService.createSession(
         uid:            uid,
         ownerName:      _auth.displayName,
@@ -1479,7 +1512,7 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
         songTitle:      track.title,
         songArtist:     track.artist,
         songData:       'yt:${track.videoId}',
-        streamUrl:      'yt:${track.videoId}',
+        streamUrl:      videoStreamUrl,           // real HLS/MP4 URL
         songDurationMs: track.duration.inMilliseconds,
         positionMs:     0,
         isPlaying:      true,
@@ -1501,7 +1534,7 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
         uid:         uid,
         displayName: _auth.displayName,
       );
-      debugPrint('[Together] Watch Together (YouTube) created: ${track.videoId}');
+      debugPrint('[Together] Watch Together (YouTube in-app) created: ${track.videoId}');
       return;
     }
 
@@ -1511,7 +1544,7 @@ class TogetherBloc extends Bloc<TogetherEvent, TogetherState> {
       final rawName  = event.localFileTitle ?? filePath.split('/').last;
       final dot      = rawName.lastIndexOf('.');
       final title    = dot > 0 ? rawName.substring(0, dot) : rawName;
-      final songId   = 'watch_${DateTime.now().millisecondsSinceEpoch}'; // BUG-CRIT-02 FIX: removed backslash escape
+      final songId   = 'watch_\${DateTime.now().millisecondsSinceEpoch}';
 
       final session = await _sessionService.createSession(
         uid:            uid,

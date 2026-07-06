@@ -5,6 +5,7 @@ import 'data/repositories/song_repository.dart';
 import 'services/audio_handler.dart';
 import 'services/music_scanner_service.dart';
 import 'services/settings_service.dart';
+import 'core/config/groq_config.dart';
 import 'features/together/services/together_auth_service.dart';
 import 'features/together/services/together_session_service.dart';
 import 'features/together/services/together_storage_service.dart';
@@ -30,6 +31,8 @@ class ServiceLocator {
 
     settingsService = SettingsService();
     await settingsService.init();
+    // Initialize centralized Groq key config
+    GroqConfig.instance.init(settingsService);
 
     togetherAuthService    = TogetherAuthService();
     togetherSessionService = TogetherSessionService();

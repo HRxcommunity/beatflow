@@ -5,11 +5,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-// ─────────────────────────────────────────────────────────────
-// 🔑  APNI GROQ API KEY YAHAN DAALO
-//     Free key milti hai: https://console.groq.com
-// ─────────────────────────────────────────────────────────────
-const String _kGroqApiKey = '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';
+import '../../core/config/groq_config.dart';
 
 const String _kGroqEndpoint = 'https://api.groq.com/openai/v1/chat/completions';
 const String _kModel        = 'llama-3.3-70b-versatile';
@@ -157,12 +153,6 @@ class GroqService {
 
   /// Groq API call — full conversation history bhejo context ke liye
   Future<String> sendMessage(List<ChatMessage> history) async {
-    if (_kGroqApiKey == 'YOUR_GROQ_API_KEY_HERE') {
-      return '⚠️ Groq API key set nahi ki!\n\n'
-          'groq_service.dart mein apni key daalo.\n'
-          'Free key: https://console.groq.com';
-    }
-
     final messages = [
       ChatMessage(role: 'system', content: _kSystemPrompt),
       ...history,
@@ -173,7 +163,7 @@ class GroqService {
         Uri.parse(_kGroqEndpoint),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_kGroqApiKey',
+          'Authorization': 'Bearer ${GroqConfig.instance.effectiveKey}',
         },
         body: jsonEncode({
           'model'       : _kModel,

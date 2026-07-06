@@ -16,8 +16,8 @@ import '../../features/ai_vocab/vocab_notif_settings_screen.dart';
 import '../../features/browser/hrx_browse_screen.dart';
 import '../../features/youtube/youtube_video_screen.dart';
 import '../../features/study_ai/study_ai_screen.dart';
-import '../../features/call/video_call_screen.dart'; // BUG-LOW-02 FIX: VideoCall route
 import '../../features/social/presentation/social_hub_screen.dart';
+import '../../features/downloader/downloader_screen.dart';
 
 import '../../domain/entities/song_entity.dart';
 
@@ -39,7 +39,7 @@ class AppRouter {
   static const browser    = '/browser';
   static const youtubeVideo = '/youtube-video';
   static const social       = '/social';
-  static const videoCall    = '/video-call'; // BUG-LOW-02 FIX
+  static const downloader   = '/downloader';
 
   static final router = GoRouter(
     initialLocation: splash,
@@ -71,19 +71,6 @@ class AppRouter {
             videoId: extra['videoId']!,
             title:   extra['title']!,
             artist:  extra['artist']!,
-          );
-        },
-      ),
-      // BUG-LOW-02 FIX: VideoCall screen was declared in together_bloc but had
-      // no route — guests dispatching TogetherJoinVideoCall had nowhere to navigate.
-      GoRoute(
-        path: videoCall,
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>? ?? {};
-          return VideoCallScreen(
-            channelId:   extra['channelId']   as String? ?? '',
-            displayName: extra['displayName'] as String? ?? 'Guest',
-            isOwner:     extra['isOwner']     as bool?   ?? false,
           );
         },
       ),
@@ -142,6 +129,10 @@ class AppRouter {
       GoRoute(
         path: social,
         builder: (context, state) => const SocialHubScreen(),
+      ),
+      GoRoute(
+        path: downloader,
+        builder: (context, state) => const DownloaderScreen(),
       ),
       GoRoute(
         path: browser,

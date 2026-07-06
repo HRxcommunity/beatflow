@@ -209,7 +209,7 @@ class _SplashScreenState extends State<SplashScreen>
                     barCount: 12,
                     barWidth: 3.0,
                     maxHeight: size.height * 0.14,
-                    color: _cyan.withValues(alpha: 0.75),
+                    color: _cyan.withOpacity(0.75),
                     reversed: false,
                   ),
                 ),
@@ -222,7 +222,7 @@ class _SplashScreenState extends State<SplashScreen>
                     barCount: 10,
                     barWidth: 3.0,
                     maxHeight: size.height * 0.10,
-                    color: _cyan.withValues(alpha: 0.65),
+                    color: _cyan.withOpacity(0.65),
                     reversed: true,
                   ),
                 ),
@@ -496,7 +496,7 @@ class _SplashScreenState extends State<SplashScreen>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   boxShadow: [
-                    BoxShadow(color: _blue.withValues(alpha: 0.4), blurRadius: 28, spreadRadius: 4),
+                    BoxShadow(color: _blue.withOpacity(0.4), blurRadius: 28, spreadRadius: 4),
                   ],
                 ),
               ),
@@ -516,7 +516,7 @@ class _SplashScreenState extends State<SplashScreen>
     return Container(
       height: 5,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color: Colors.white.withOpacity(0.12),
         borderRadius: BorderRadius.circular(3),
       ),
       child: FractionallySizedBox(
@@ -526,7 +526,7 @@ class _SplashScreenState extends State<SplashScreen>
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(3),
             gradient: const LinearGradient(colors: [_blue, _cyan]),
-            boxShadow: [BoxShadow(color: _cyan.withValues(alpha: 0.7), blurRadius: 8)],
+            boxShadow: [BoxShadow(color: _cyan.withOpacity(0.7), blurRadius: 8)],
           ),
         ),
       ),
@@ -541,8 +541,8 @@ class _SplashScreenState extends State<SplashScreen>
           height: 52,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            color: Colors.white.withValues(alpha: 0.08),
-            border: Border.all(color: _blue.withValues(alpha: 0.35), width: 1),
+            color: Colors.white.withOpacity(0.08),
+            border: Border.all(color: _blue.withOpacity(0.35), width: 1),
           ),
           child: Icon(icon, color: _cyan, size: 24),
         ),
@@ -552,7 +552,7 @@ class _SplashScreenState extends State<SplashScreen>
             fontWeight: FontWeight.w600, color: _white)),
         Text(line2,
           style: TextStyle(fontFamily: 'Poppins', fontSize: 10,
-            color: _grey.withValues(alpha: 0.75))),
+            color: _grey.withOpacity(0.75))),
       ],
     );
   }
@@ -560,7 +560,7 @@ class _SplashScreenState extends State<SplashScreen>
   Widget _buildDivider() {
     return Container(
       width: 1, height: 50,
-      color: Colors.white.withValues(alpha: 0.12),
+      color: Colors.white.withOpacity(0.12),
     );
   }
 }
@@ -590,7 +590,7 @@ class _LogoIconPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(cx, cy), cx - 1,
       Paint()
-        ..color = const Color(0xFF0A84FF).withValues(alpha: 0.5)
+        ..color = const Color(0xFF0A84FF).withOpacity(0.5)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5,
     );
@@ -632,8 +632,8 @@ class _LogoIconPainter extends CustomPainter {
           foreground: Paint()
             ..shader = LinearGradient(
               colors: [
-                const Color(0xFF0A84FF).withValues(alpha: 0.55),
-                const Color(0xFF00D4FF).withValues(alpha: 0.30),
+                const Color(0xFF0A84FF).withOpacity(0.55),
+                const Color(0xFF00D4FF).withOpacity(0.30),
               ],
             ).createShader(Rect.fromLTWH(cx, 0, size.width, size.height)),
         ),

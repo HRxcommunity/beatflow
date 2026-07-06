@@ -49,8 +49,14 @@ class _SocialScreenState extends State<SocialScreen>
       // The BlocListener<TogetherBloc> below will call _initSocial() again
       // once uid becomes non-null (either via authStateChanges restoration
       // or after the sign-in event completes).
+      // BUG-NAME FIX: use existing displayName from state if already set
+      // (e.g. user typed a custom name on the Together screen) so we don't
+      // overwrite it with the hardcoded 'BeatFlow User' fallback.
       if (tb.status != TogetherStatus.loading) {
-        context.read<TogetherBloc>().add(const TogetherSignIn('BeatFlow User'));
+        final autoName = (tb.displayName != null && tb.displayName!.isNotEmpty)
+            ? tb.displayName!
+            : 'BeatFlow User';
+        context.read<TogetherBloc>().add(TogetherSignIn(autoName));
       }
       return;
     }
@@ -193,10 +199,10 @@ class _QrJoinButton extends StatelessWidget {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [AppTheme.accentViolet.withValues(alpha: 0.15), AppTheme.accentCyan.withValues(alpha: 0.1)],
+                  colors: [AppTheme.accentViolet.withOpacity(0.15), AppTheme.accentCyan.withOpacity(0.1)],
                 ),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppTheme.accentViolet.withValues(alpha: 0.3)),
+                border: Border.all(color: AppTheme.accentViolet.withOpacity(0.3)),
               ),
               child: Column(
                 children: [
@@ -229,7 +235,7 @@ class _QrJoinButton extends StatelessWidget {
                 fillColor: AppTheme.bgSurface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.accentViolet.withValues(alpha: 0.4)),
+                  borderSide: BorderSide(color: AppTheme.accentViolet.withOpacity(0.4)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -377,9 +383,9 @@ class _ActivityAvatarCard extends StatelessWidget {
                 margin: const EdgeInsets.only(top: 3),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppTheme.accentViolet.withValues(alpha: 0.2),
+                  color: AppTheme.accentViolet.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.accentViolet.withValues(alpha: 0.5), width: 0.5),
+                  border: Border.all(color: AppTheme.accentViolet.withOpacity(0.5), width: 0.5),
                 ),
                 child: const Text('Together', style: TextStyle(fontFamily: 'Poppins', fontSize: 8, color: AppTheme.accentViolet, fontWeight: FontWeight.w600)),
               ),
@@ -518,12 +524,12 @@ class _TrendingRoomCard extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft, end: Alignment.bottomRight,
             colors: [
-              ownerColor.withValues(alpha: 0.18),
+              ownerColor.withOpacity(0.18),
               AppTheme.bgCard,
             ],
           ),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: ownerColor.withValues(alpha: 0.4), width: 1.5),
+          border: Border.all(color: ownerColor.withOpacity(0.4), width: 1.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -532,7 +538,7 @@ class _TrendingRoomCard extends StatelessWidget {
               children: [
                 Container(
                   width: 28, height: 28,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: accent.withValues(alpha: 0.15)),
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: accent.withOpacity(0.15)),
                   child: Center(
                     child: Text('#$rank', style: TextStyle(color: accent, fontSize: 11, fontWeight: FontWeight.w800, fontFamily: 'Poppins')),
                   ),
@@ -598,7 +604,7 @@ class _PublicRoomTile extends StatelessWidget {
         width: 46, height: 46,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: LinearGradient(colors: [color, color.withValues(alpha: 0.5)]),
+          gradient: LinearGradient(colors: [color, color.withOpacity(0.5)]),
         ),
         child: Center(
           child: Text(
@@ -629,12 +635,12 @@ class _PublicRoomTile extends StatelessWidget {
       trailing: ElevatedButton(
         onPressed: () => _joinRoom(context, room),
         style: ElevatedButton.styleFrom(
-          backgroundColor: color.withValues(alpha: 0.2),
+          backgroundColor: color.withOpacity(0.2),
           foregroundColor: color,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: color.withValues(alpha: 0.5))),
+              side: BorderSide(color: color.withOpacity(0.5))),
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
@@ -721,7 +727,7 @@ class _DiscoverTabState extends State<_DiscoverTab> {
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7), width: 1.5),
+                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.7), width: 1.5),
               ),
             ),
           ),
@@ -771,7 +777,7 @@ class _UserSearchTile extends StatelessWidget {
         width: 44, height: 44,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: LinearGradient(colors: [color, color.withValues(alpha: 0.5)]),
+          gradient: LinearGradient(colors: [color, color.withOpacity(0.5)]),
         ),
         child: Center(
           child: Text(
@@ -817,7 +823,7 @@ class _FollowButton extends StatelessWidget {
       },
       style: OutlinedButton.styleFrom(
         foregroundColor: isFollowing ? AppTheme.textSecondary : accent,
-        side: BorderSide(color: isFollowing ? Colors.white24 : accent.withValues(alpha: 0.7)),
+        side: BorderSide(color: isFollowing ? Colors.white24 : accent.withOpacity(0.7)),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         minimumSize: Size.zero,
@@ -893,10 +899,10 @@ class _EmptyState extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: accent.withValues(alpha: 0.1),
-                border: Border.all(color: accent.withValues(alpha: 0.2)),
+                color: accent.withOpacity(0.1),
+                border: Border.all(color: accent.withOpacity(0.2)),
               ),
-              child: Icon(icon, size: 40, color: accent.withValues(alpha: 0.7)),
+              child: Icon(icon, size: 40, color: accent.withOpacity(0.7)),
             ),
             const SizedBox(height: 16),
             Text(title, style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 16, color: Colors.white), textAlign: TextAlign.center),

@@ -42,6 +42,9 @@
     <!-- Vocab notifications: show notifications on Android 13+ (API 33+) — required at runtime too -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- OTA: Request install packages (APK side-loading) — Android 8+ -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
         android:usesCleartextTraffic="true"
         android:label="BeatFlow"
@@ -72,6 +75,18 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+
+            <!-- ── Video Downloader: receive shared URLs from Chrome/YouTube/Instagram ── -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/plain"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/*"/>
             </intent-filter>
         </activity>
 
@@ -109,5 +124,16 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- ── OTA Update: FileProvider for APK install (Android 7+) ── -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.beatflow.app.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

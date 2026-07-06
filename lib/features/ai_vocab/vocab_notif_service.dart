@@ -6,15 +6,12 @@
 // ║  BUG-VN06 FIX: _attemptGenerate complete                    ║
 // ║  BUG-VN07 FIX: EXACT alarms — no more batch firing!         ║
 // ║  BUG-VN08 FIX: auto word-bank generate on scheduleNext()    ║
+// ║  CHANGE-2: hardcoded API key, DeliveredVocabNotif tracking   ║
 // ╚══════════════════════════════════════════════════════════════╝
 //
-// ⚠️ AndroidManifest.xml mein add karo (before <application> tag):
-//
-//   <!-- Android 12 (API 31-32): user must grant in system settings -->
+// ⚠️ AndroidManifest.xml mein add karo (before <application> tag)
 //   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-//   <!-- Android 13+ (API 33+): auto-granted, no user interaction needed -->
 //   <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-//
 // ─────────────────────────────────────────────────────────────────
 
 import 'dart:async';
@@ -25,8 +22,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
+import '../../core/config/groq_config.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tzData;
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Data models
@@ -57,6 +57,51 @@ class VocabWord {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CHANGE-2: DeliveredVocabNotif — tracks every notification that was scheduled
+// ─────────────────────────────────────────────────────────────────────────────
+
+class DeliveredVocabNotif {
+  final String   word;
+  final String   hindiMeaning;
+  final String   hindiSentence;
+  final DateTime deliveredAt;
+  bool           quizAnswered;
+  bool?          quizCorrect;
+
+  DeliveredVocabNotif({
+    required this.word,
+    required this.hindiMeaning,
+    required this.hindiSentence,
+    required this.deliveredAt,
+    this.quizAnswered = false,
+    this.quizCorrect,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'word'         : word,
+        'hindiMeaning' : hindiMeaning,
+        'hindiSentence': hindiSentence,
+        'deliveredAt'  : deliveredAt.toIso8601String(),
+        'quizAnswered' : quizAnswered,
+        'quizCorrect'  : quizCorrect,
+      };
+
+  factory DeliveredVocabNotif.fromJson(Map<String, dynamic> j) =>
+      DeliveredVocabNotif(
+        word         : (j['word']          as String? ?? '').trim(),
+        hindiMeaning : (j['hindiMeaning']  as String? ?? '').trim(),
+        hindiSentence: (j['hindiSentence'] as String? ?? '').trim(),
+        deliveredAt  : DateTime.tryParse(j['deliveredAt'] as String? ?? '') ??
+            DateTime.now(),
+        quizAnswered : j['quizAnswered'] as bool? ?? false,
+        quizCorrect  : j['quizCorrect']  as bool?,
+      );
+
+  /// Composite key for deduplication
+  String get dedupeKey => '${word.toLowerCase()}|${deliveredAt.toIso8601String().substring(0, 10)}';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class VocabNotifSettings {
   bool      enabled;
@@ -66,6 +111,7 @@ class VocabNotifSettings {
   int       endMinute;
   int       dailyCount;
   List<int> activeDays;
+  // Backward-compat: kept in JSON but service uses hardcoded key
   String    groqApiKey;
 
   VocabNotifSettings({
@@ -111,23 +157,22 @@ class VocabNotifService {
   static final VocabNotifService instance = VocabNotifService._();
   VocabNotifService._();
 
-  static const _boxName     = 'vocab_notif_data';
-  static const _settingsKey = 'settings_v1';
-  static const _wordBankKey = 'word_bank_v1';
-  static const _kBaseId     = 1000;
-  static const _kMaxId      = 1999;
-  static const _kGroqUrl    = 'https://api.groq.com/openai/v1/chat/completions';
-  static const _kGroqModel  = 'llama-3.3-70b-versatile';
+  static const _boxName        = 'vocab_notif_data';
+  static const _settingsKey    = 'settings_v1';
+  static const _wordBankKey    = 'word_bank_v1';
+  static const _deliveredKey   = 'delivered_notifs_v1';  // CHANGE-2
+  static const _kBaseId        = 1000;
+  static const _kMaxId         = 1999;
+  static const _kGroqUrl       = 'https://api.groq.com/openai/v1/chat/completions';
+  static const _kGroqModel     = 'llama-3.3-70b-versatile';
+  static const _kMaxDelivered  = 200;  // CHANGE-2: keep last 200 delivered notifs
 
   final _plugin = FlutterLocalNotificationsPlugin();
-  VocabNotifSettings settings = VocabNotifSettings();
-  List<VocabWord>    _wordBank = [];
-  bool               _initialized      = false;
-
-  // BUG-VN07: Tracks whether SCHEDULE_EXACT_ALARM / USE_EXACT_ALARM is granted.
-  // When true  → exactAllowWhileIdle  → each notification fires at its exact time
-  // When false → inexactAllowWhileIdle → Android batches them (2-3 together) ❌
-  bool _exactAlarmsGranted = false;
+  VocabNotifSettings      settings        = VocabNotifSettings();
+  List<VocabWord>         _wordBank       = [];
+  List<DeliveredVocabNotif> _deliveredNotifs = [];  // CHANGE-2
+  bool                    _initialized    = false;
+  bool                    _exactAlarmsGranted = false;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Public getters
@@ -136,6 +181,10 @@ class VocabNotifService {
   int             get wordBankSize       => _wordBank.length;
   List<VocabWord> get wordBank           => List.unmodifiable(_wordBank);
   bool            get exactAlarmsGranted => _exactAlarmsGranted;
+
+  // CHANGE-2: exposed delivered notifs
+  List<DeliveredVocabNotif> get deliveredNotifs =>
+      List.unmodifiable(_deliveredNotifs);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Init
@@ -147,8 +196,6 @@ class VocabNotifService {
 
     tzData.initializeTimeZones();
 
-    // BUG-VN05 FIX: Explicitly set IST so zonedSchedule fires at correct
-    // Indian time. Without this tz.local defaults to UTC → 5:30 hr offset.
     try {
       tz.setLocalLocation(tz.getLocation('Asia/Kolkata'));
       debugPrint('[VocabNotif] Timezone → IST (Asia/Kolkata)');
@@ -180,36 +227,29 @@ class VocabNotifService {
           ),
         );
 
-    // BUG-VN07: Check exact alarm permission on startup so _exactAlarmsGranted
-    // is always up-to-date before the first scheduleNext() call.
     await _refreshExactAlarmStatus();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // BUG-VN07: Exact alarm permission helpers
+  // Exact alarm permission helpers
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// Silently checks if exact alarms can be scheduled. Updates internal flag.
   Future<void> _refreshExactAlarmStatus() async {
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     if (android == null) {
-      _exactAlarmsGranted = true; // Non-Android platform
+      _exactAlarmsGranted = true;
       return;
     }
     try {
       _exactAlarmsGranted =
           await android.canScheduleExactNotifications() ?? false;
-      debugPrint(
-          '[VocabNotif] Exact alarms granted: $_exactAlarmsGranted');
+      debugPrint('[VocabNotif] Exact alarms granted: $_exactAlarmsGranted');
     } catch (_) {
       _exactAlarmsGranted = false;
     }
   }
 
-  /// Opens Android system settings so user can grant SCHEDULE_EXACT_ALARM.
-  /// Call this from Settings screen when exact alarms are not granted.
-  /// After user returns to app, call [recheckExactAlarmPermission()].
   Future<void> requestExactAlarmPermission() async {
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
@@ -221,15 +261,11 @@ class VocabNotifService {
     }
   }
 
-  /// Call this when app resumes (AppLifecycleState.resumed) to re-check
-  /// if user granted exact alarm permission in system settings.
   Future<void> recheckExactAlarmPermission() async {
     final before = _exactAlarmsGranted;
     await _refreshExactAlarmStatus();
-    // If just granted → reschedule so notifications become exact
     if (!before && _exactAlarmsGranted && settings.enabled) {
-      debugPrint(
-          '[VocabNotif] Exact alarm just granted → rescheduling...');
+      debugPrint('[VocabNotif] Exact alarm just granted → rescheduling...');
       await scheduleNext(daysAhead: 7);
     }
   }
@@ -255,6 +291,15 @@ class VocabNotifService {
             .map((e) => VocabWord.fromJson(e as Map<String, dynamic>))
             .toList();
       }
+
+      // CHANGE-2: Load delivered notifs
+      final dJson = box.get(_deliveredKey);
+      if (dJson != null) {
+        final list = jsonDecode(dJson) as List;
+        _deliveredNotifs = list
+            .map((e) => DeliveredVocabNotif.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
     } catch (e) {
       debugPrint('[VocabNotif] Hive load error: $e');
     }
@@ -273,7 +318,15 @@ class VocabNotifService {
     );
   }
 
-  /// Clears word bank from memory and Hive.
+  // CHANGE-2: Save delivered notifs to Hive
+  Future<void> saveDeliveredNotifs() async {
+    final box = Hive.box<String>(_boxName);
+    await box.put(
+      _deliveredKey,
+      jsonEncode(_deliveredNotifs.map((n) => n.toJson()).toList()),
+    );
+  }
+
   Future<void> clearWordBank() async {
     _wordBank = [];
     await _saveWordBank();
@@ -281,14 +334,51 @@ class VocabNotifService {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // BUG-VN01 FIX: Word bank generation with retry logic
+  // CHANGE-2: Delivered notif helpers
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Add a notif to delivered list (dedup by word+day, max 200)
+  void _addDeliveredNotif(VocabWord w, DateTime scheduledTime) {
+    final candidate = DeliveredVocabNotif(
+      word         : w.word,
+      hindiMeaning : w.hindiMeaning,
+      hindiSentence: w.hindiSentence,
+      deliveredAt  : scheduledTime,
+    );
+
+    // Deduplicate: same word on same day
+    final existingKeys = _deliveredNotifs.map((n) => n.dedupeKey).toSet();
+    if (existingKeys.contains(candidate.dedupeKey)) return;
+
+    _deliveredNotifs.add(candidate);
+
+    // Trim to max 200, keeping most recent
+    if (_deliveredNotifs.length > _kMaxDelivered) {
+      _deliveredNotifs = _deliveredNotifs
+          .sublist(_deliveredNotifs.length - _kMaxDelivered);
+    }
+  }
+
+  /// Mark quiz result using composite key (word + date prefix) for safety
+  Future<void> markQuizResult(String word, DateTime deliveredAt, bool correct) async {
+    final key = '${word.toLowerCase()}|${deliveredAt.toIso8601String().substring(0, 10)}';
+    for (final n in _deliveredNotifs) {
+      if (n.dedupeKey == key) {
+        n.quizAnswered = true;
+        n.quizCorrect  = correct;
+        break;
+      }
+    }
+    await saveDeliveredNotifs();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CHANGE-2: Word bank generation — uses hardcoded key, no user input needed
   // ─────────────────────────────────────────────────────────────────────────
 
   /// Returns null on success, error string on failure.
   Future<String?> generateWordBank({int count = 60}) async {
-    final apiKey = settings.groqApiKey.trim();
-    if (apiKey.isEmpty) return 'Pehle Groq API key daalo Settings mein ⬇️';
-
+    // CHANGE-2: Use hardcoded API key — settings.groqApiKey NOT used
     final attemptCounts = [count, max(20, count ~/ 2), 20];
 
     for (int attempt = 0; attempt < 3; attempt++) {
@@ -296,7 +386,7 @@ class VocabNotifService {
       debugPrint('[VocabNotif] Attempt ${attempt + 1}/3 ($tryCount words)...');
 
       try {
-        final result = await _attemptGenerate(apiKey, tryCount);
+        final result = await _attemptGenerate(tryCount);
         if (result == null) return null;
 
         debugPrint('[VocabNotif] Attempt ${attempt + 1} failed: $result');
@@ -311,8 +401,8 @@ class VocabNotifService {
     return 'Word generation failed. Dobara try karo.';
   }
 
-  // BUG-VN06 FIX: Complete implementation — was truncated in original.
-  Future<String?> _attemptGenerate(String apiKey, int count) async {
+  Future<String?> _attemptGenerate(int count) async {
+    // CHANGE-2: Uses top-level GroqConfig.instance.effectiveKey constant
     final prompt = '''
 Generate $count English vocabulary words for SSC CGL exam preparation.
 Return ONLY a valid JSON array — no markdown fences, no extra text.
@@ -341,7 +431,7 @@ Rules:
             Uri.parse(_kGroqUrl),
             headers: {
               'Content-Type' : 'application/json',
-              'Authorization': 'Bearer $apiKey',
+              'Authorization': 'Bearer ${GroqConfig.instance.effectiveKey}',
             },
             body: jsonEncode({
               'model'      : _kGroqModel,
@@ -364,12 +454,10 @@ Rules:
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       String raw = (data['choices'][0]['message']['content'] as String).trim();
 
-      // Strip markdown fences if present
       if (raw.startsWith('```')) {
         raw = raw.replaceAll(RegExp(r'```(?:json)?'), '').trim();
       }
 
-      // Extract array if surrounded by other text
       if (!raw.startsWith('[')) {
         final match = RegExp(r'\[[\s\S]*\]').firstMatch(raw);
         if (match == null) return 'JSON array nahi mili response mein.';
@@ -433,7 +521,6 @@ Rules:
 
     if (window <= 0 || count <= 0) return [];
 
-    // Cap to window capacity — at most 1 notification per minute
     final effectiveCount = min(count, window);
     final interval       = window / effectiveCount;
     final times          = <DateTime>[];
@@ -471,17 +558,10 @@ Rules:
     debugPrint('[VocabNotif] All cancelled');
   }
 
-  /// BUG-VN07 FIX + BUG-VN08 FIX:
-  ///
-  /// VN07 — Exact alarms: When _exactAlarmsGranted is true, each notification
-  ///   fires at its own scheduled time (exact). When false, Android batches
-  ///   multiple inexact alarms together → 2-3 come at once. ❌
-  ///
-  /// VN08 — Auto word bank: If word bank is empty and API key exists, auto-
-  ///   generate before scheduling. User doesn't need to do it manually.
+  /// CHANGE-2: scheduleNext now tracks delivered notifs
   Future<int> scheduleNext({int daysAhead = 7}) async {
-    // BUG-VN08: Auto-generate word bank if empty — no manual step needed
-    if (_wordBank.isEmpty && settings.groqApiKey.trim().isNotEmpty) {
+    // Auto-generate word bank if empty (no API key check needed — key is hardcoded)
+    if (_wordBank.isEmpty) {
       debugPrint('[VocabNotif] Word bank empty → auto-generating...');
       final err = await generateWordBank(count: 60);
       if (err != null) {
@@ -491,9 +571,7 @@ Rules:
 
     if (_wordBank.isEmpty) return 0;
 
-    // Refresh exact alarm status before scheduling
     await _refreshExactAlarmStatus();
-
     await cancelAll();
 
     final now   = DateTime.now();
@@ -515,7 +593,6 @@ Rules:
         if (dt.isBefore(now)) continue;
         if (idCtr > _kMaxId) break;
 
-        // BUG-VN05 FIX: tz.local is now IST (set in init())
         final tzDt = tz.TZDateTime.from(dt, tz.local);
         final w    = words[i];
         final body = '${w.hindiSentence}\n\n💡 Meaning: ${w.hindiMeaning}';
@@ -542,9 +619,6 @@ Rules:
                 ticker: '${w.word} — ${w.hindiMeaning}',
               ),
             ),
-            // BUG-VN07 FIX: Use exact mode when permission granted.
-            // exactAllowWhileIdle → fires at precise scheduled time even in Doze
-            // inexactAllowWhileIdle → Android batches alarms → 2-3 together ❌
             androidScheduleMode: _exactAlarmsGranted
                 ? AndroidScheduleMode.exactAllowWhileIdle
                 : AndroidScheduleMode.inexactAllowWhileIdle,
@@ -552,11 +626,17 @@ Rules:
                 UILocalNotificationDateInterpretation.absoluteTime,
           );
           total++;
+
+          // CHANGE-2: Track this notification as delivered
+          _addDeliveredNotif(w, dt);
         } catch (e) {
           debugPrint('[VocabNotif] Schedule error id=${idCtr - 1}: $e');
         }
       }
     }
+
+    // CHANGE-2: Persist updated delivered notifs
+    await saveDeliveredNotifs();
 
     debugPrint(
         '[VocabNotif] Scheduled $total notifications '
@@ -598,9 +678,6 @@ Rules:
     }
   }
 
-  // BUG-VN02 FIX: Only request notification permission.
-  // BUG-VN07: Also requests exact alarm permission — stores result in
-  // _exactAlarmsGranted so scheduleNext() can use the right mode.
   Future<bool> requestPermissions() async {
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
@@ -609,26 +686,18 @@ Rules:
       return true;
     }
 
-    // Step 1: Notification permission (Android 13+)
     final notifGranted =
         await android.requestNotificationsPermission() ?? false;
 
-    // Step 2: Exact alarm permission.
-    // On Android 12 (API 31-32) → opens system settings page.
-    // On Android 13+ with USE_EXACT_ALARM in manifest → auto-granted silently.
     try {
       await android.requestExactAlarmsPermission();
-    } catch (_) {
-      // Older Android versions → ignore, inexact mode will be used
-    }
+    } catch (_) {}
 
-    // Step 3: Check actual status after request
     await _refreshExactAlarmStatus();
 
     return notifGranted;
   }
 
-  /// Check if notification permission is granted (without requesting).
   Future<bool> areNotificationsEnabled() async {
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
@@ -654,7 +723,6 @@ Rules:
     return null;
   }
 
-  /// Human-readable label: "Aaj 6:00 AM", "Kal 6:00 AM", "Mangalwar 6:00 AM"
   String getNextNotificationLabel() {
     final next = getNextNotificationTime();
     if (next == null) return '';

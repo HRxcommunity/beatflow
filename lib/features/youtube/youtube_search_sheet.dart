@@ -83,7 +83,7 @@ class _YoutubeSearchSheetState extends State<YoutubeSearchSheet> {
                 child: Container(
                   width: 36, height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -98,7 +98,7 @@ class _YoutubeSearchSheetState extends State<YoutubeSearchSheet> {
                     Container(
                       width: 36, height: 36,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF0000).withValues(alpha: 0.15),
+                        color: const Color(0xFFFF0000).withOpacity(0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.smart_display_rounded,
@@ -146,7 +146,7 @@ class _YoutubeSearchSheetState extends State<YoutubeSearchSheet> {
                           prefixIcon: const Icon(Icons.search_rounded,
                               color: AppTheme.textSecondary, size: 20),
                           filled: true,
-                          fillColor: Colors.white.withValues(alpha: 0.07),
+                          fillColor: Colors.white.withOpacity(0.07),
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 13),
                           border: OutlineInputBorder(
@@ -172,7 +172,7 @@ class _YoutubeSearchSheetState extends State<YoutubeSearchSheet> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(14),
                           gradient: LinearGradient(
-                              colors: [accent, accent.withValues(alpha: 0.7)]),
+                              colors: [accent, accent.withOpacity(0.7)]),
                         ),
                         child: const Icon(Icons.search_rounded,
                             color: Colors.white, size: 22),
@@ -212,7 +212,7 @@ class _YoutubeSearchSheetState extends State<YoutubeSearchSheet> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.smart_display_rounded,
-                                color: Colors.white.withValues(alpha: 0.12), size: 64),
+                                color: Colors.white.withOpacity(0.12), size: 64),
                             const SizedBox(height: 12),
                             const Text('Search YouTube to find music',
                                 style: TextStyle(
@@ -320,9 +320,9 @@ class _YoutubeTrackTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 1),
+        border: Border.all(color: Colors.white.withOpacity(0.06), width: 1),
       ),
       child: Row(
         children: [
@@ -380,7 +380,7 @@ class _YoutubeTrackTile extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
-                          colors: [accent, accent.withValues(alpha: 0.7)]),
+                          colors: [accent, accent.withOpacity(0.7)]),
                     ),
                     child: isLoading
                         ? const Padding(
@@ -400,7 +400,7 @@ class _YoutubeTrackTile extends StatelessWidget {
                     width: 34, height: 34,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFFFF0000).withValues(alpha: 0.85),
+                      color: const Color(0xFFFF0000).withOpacity(0.85),
                     ),
                     child: const Icon(Icons.smart_display_rounded,
                         color: Colors.white, size: 18),
@@ -415,9 +415,9 @@ class _YoutubeTrackTile extends StatelessWidget {
                   width: 34, height: 34,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: Colors.white.withOpacity(0.08),
                     border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.12), width: 1),
+                        color: Colors.white.withOpacity(0.12), width: 1),
                   ),
                   child: const Icon(Icons.chat_bubble_outline_rounded,
                       color: Colors.white60, size: 16),

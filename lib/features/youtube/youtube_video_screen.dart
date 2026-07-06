@@ -51,6 +51,9 @@ class _YoutubeVideoScreenState extends State<YoutubeVideoScreen> {
   bool _loading = true;
   bool _hasError = false;
   Timer? _loadTimeout;
+  // BUG-YQ01 FIX: quality picker state
+  List<String> _availableQualities = [];
+  String _currentQuality = 'default'; // 'default' = auto
 
   @override
   void initState() {
@@ -170,6 +173,19 @@ class _YoutubeVideoScreenState extends State<YoutubeVideoScreen> {
         _loadTimeout?.cancel();
         setState(() { _loading = false; _hasError = false; });
       }
+    } else if (data.startsWith('qualities:')) {
+      // BUG-YQ01 FIX: parse available quality levels from IFrame API
+      final raw = data.substring('qualities:'.length);
+      if (raw.isNotEmpty && mounted) {
+        setState(() {
+          _availableQualities = raw.split(',')
+              .where((q) => q.isNotEmpty)
+              .toList();
+        });
+      }
+    } else if (data.startsWith('qualityChanged:')) {
+      final q = data.substring('qualityChanged:'.length);
+      if (mounted) setState(() => _currentQuality = q);
     } else if (data.startsWith('error:')) {
       // YouTube player error codes:
       //   2  = invalid parameter
@@ -266,6 +282,16 @@ class _YoutubeVideoScreenState extends State<YoutubeVideoScreen> {
           event.target.playVideo();
           if (typeof YTFlutter !== 'undefined') {
             YTFlutter.postMessage('ready');
+            // BUG-YQ01 FIX: report available quality levels to Flutter
+            var levels = event.target.getAvailableQualityLevels();
+            YTFlutter.postMessage('qualities:' + levels.join(','));
+            // Some videos need a few seconds for quality list to populate
+            setTimeout(function() {
+              var updated = event.target.getAvailableQualityLevels();
+              if (updated.length > 0 && typeof YTFlutter !== 'undefined') {
+                YTFlutter.postMessage('qualities:' + updated.join(','));
+              }
+            }, 3000);
           }
         },
         onStateChange: function(event) {
@@ -282,10 +308,105 @@ class _YoutubeVideoScreenState extends State<YoutubeVideoScreen> {
       }
     });
   }
+
+  // BUG-YQ01 FIX: callable from Flutter via runJavaScript('setQuality(...)')
+  function setQuality(quality) {
+    if (ytPlayer && typeof ytPlayer.setPlaybackQuality === 'function') {
+      ytPlayer.setPlaybackQuality(quality);
+      if (typeof YTFlutter !== 'undefined') {
+        YTFlutter.postMessage('qualityChanged:' + quality);
+      }
+    }
+  }
 </script>
 </body>
 </html>''';
   }
+
+  // ── Quality picker ───────────────────────────────────────────────
+  void _showQualityPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF0F0F1E),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 16),
+              decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2))),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('Video Quality',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Poppins',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700)),
+          ),
+          ..._availableQualities.map((q) {
+            final isSelected = _currentQuality == q;
+            return ListTile(
+              leading: Icon(
+                isSelected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: isSelected
+                    ? const Color(0xFF7C3AED)
+                    : Colors.white38,
+                size: 20,
+              ),
+              title: Text(
+                _qualityLabel(q),
+                style: TextStyle(
+                    color: isSelected
+                        ? const Color(0xFF7C3AED)
+                        : Colors.white,
+                    fontFamily: 'Poppins',
+                    fontWeight: isSelected
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    fontSize: 14),
+              ),
+              trailing: isSelected
+                  ? const Icon(Icons.check_rounded,
+                      color: Color(0xFF7C3AED), size: 18)
+                  : null,
+              onTap: () {
+                Navigator.pop(context);
+                _setQuality(q);
+              },
+            );
+          }),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  void _setQuality(String quality) {
+    _webController?.runJavaScript("setQuality('$quality')");
+    setState(() => _currentQuality = quality);
+  }
+
+  /// YouTube IFrame quality string → human-readable label
+  String _qualityLabel(String q) => switch (q) {
+        'small'   => '240p',
+        'medium'  => '360p',
+        'large'   => '480p',
+        'hd720'   => '720p HD',
+        'hd1080'  => '1080p Full HD',
+        'hd1440'  => '1440p 2K',
+        'hd2160'  => '2160p 4K',
+        'highres' => 'Highest',
+        'default' => '🤖 Auto',
+        _         => q,
+      };
 
   @override
   void dispose() {
@@ -338,7 +459,7 @@ class _YoutubeVideoScreenState extends State<YoutubeVideoScreen> {
                         Text(
                           widget.artist,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6),
+                            color: Colors.white.withOpacity(0.6),
                             fontSize: 11,
                           ),
                         ),
@@ -348,9 +469,9 @@ class _YoutubeVideoScreenState extends State<YoutubeVideoScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.2),
+                      color: Colors.red.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.red.withValues(alpha: 0.4), width: 1),
+                      border: Border.all(color: Colors.red.withOpacity(0.4), width: 1),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
@@ -368,6 +489,37 @@ class _YoutubeVideoScreenState extends State<YoutubeVideoScreen> {
                       ],
                     ),
                   ),
+                  // BUG-YQ01 FIX: quality picker button
+                  if (_availableQualities.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => _showQualityPicker(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.white30),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.hd_rounded,
+                                color: Colors.white, size: 12),
+                            const SizedBox(width: 3),
+                            Text(
+                              _qualityLabel(_currentQuality),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

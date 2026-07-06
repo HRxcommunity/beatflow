@@ -15,8 +15,9 @@ import org.json.JSONObject
 class MainActivity : AudioServiceActivity() {
 
     companion object {
-        private const val CHANNEL          = "com.beatflow.app/media"
-        private const val SETTINGS_CHANNEL = "beatflow/settings"
+        private const val CHANNEL           = "com.beatflow.app/media"
+        private const val SETTINGS_CHANNEL  = "beatflow/settings"
+        private const val INSTALLER_CHANNEL = "beatflow/installer"
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -60,6 +61,51 @@ class MainActivity : AudioServiceActivity() {
                         result.success(null)
                     } catch (e: Exception) {
                         result.error("SETTINGS_ERROR", e.message, null)
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // ── OTA installer channel ─────────────────────────────────────────────
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            INSTALLER_CHANNEL
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "installApk" -> {
+                    try {
+                        val path = call.argument<String>("path")
+                            ?: return@setMethodCallHandler result.error(
+                                "INVALID_ARG", "path is null", null
+                            )
+
+                        val file = java.io.File(path)
+                        if (!file.exists()) {
+                            return@setMethodCallHandler result.error(
+                                "FILE_NOT_FOUND", "APK not found at: $path", null
+                            )
+                        }
+
+                        val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                            androidx.core.content.FileProvider.getUriForFile(
+                                this,
+                                "${packageName}.fileprovider",
+                                file
+                            )
+                        } else {
+                            Uri.fromFile(file)
+                        }
+
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(uri, "application/vnd.android.package-archive")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(intent)
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("INSTALL_ERROR", e.message, null)
                     }
                 }
                 else -> result.notImplemented()

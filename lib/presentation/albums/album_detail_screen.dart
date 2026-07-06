@@ -27,8 +27,8 @@ class AlbumDetailScreen extends StatelessWidget {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: hasBg
-            ? AppTheme.bgCard.withValues(alpha: 0.75)
-            : AppTheme.bgCard.withValues(alpha: 0.92),
+            ? AppTheme.bgCard.withOpacity(0.75)
+            : AppTheme.bgCard.withOpacity(0.92),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white70),
@@ -48,7 +48,7 @@ class AlbumDetailScreen extends StatelessWidget {
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.18),
+                  color: accent.withOpacity(0.18),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(Icons.play_arrow_rounded, color: accent, size: 22),
@@ -74,12 +74,12 @@ class AlbumDetailScreen extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    accent.withValues(alpha: 0.25),
+                    accent.withOpacity(0.25),
                     AppTheme.bgCard,
                   ],
                 ),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: Colors.white.withOpacity(0.08),
                   width: 1,
                 ),
               ),
@@ -92,11 +92,11 @@ class AlbumDetailScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(colors: [
-                        accent.withValues(alpha: 0.35),
+                        accent.withOpacity(0.35),
                         AppTheme.bgSurface,
                       ]),
                     ),
-                    child: Icon(Icons.album_rounded, size: 44, color: accent.withValues(alpha: 0.8)),
+                    child: Icon(Icons.album_rounded, size: 44, color: accent.withOpacity(0.8)),
                   ),
                   const SizedBox(height: 10),
                   Padding(

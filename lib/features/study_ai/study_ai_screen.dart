@@ -1,24 +1,41 @@
-// ╔══════════════════════════════════════════════════════════════════════╗
-// ║  Study AI Screen — Unlimited Questions + Preview + Delete + Retest  ║
-// ║                                                                      ║
-// ║  Flow: idle → processing → PREVIEW → quiz → result                  ║
-// ║        Preview: expand/delete questions, load more, start test       ║
-// ║        Quiz:    Submit Test + End Test (exit dialog)                 ║
-// ║        Result:  Retest + Edit Preview + New Topic                    ║
-// ╚══════════════════════════════════════════════════════════════════════╝
+// lib/features/study_ai/study_ai_screen.dart
+// FIX: Added animated progress bar + elapsed time to processing/loading state
+// The brain animation stays; LinearProgressIndicator + timer added below it.
 
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
+import 'dart:math' as math;
+
 import 'package:file_picker/file_picker.dart';
-import '../../core/theme/app_theme.dart';
-import 'study_ai_service.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart'; // or pdfx
 
-enum _StudyState { idle, processing, preview, quiz, result }
+import '../../services/groq_service.dart';
+import '../../theme/app_theme.dart';
 
-// PDF page batch size — must match service constant
-const int _kPdfPageBatch = 5;
+// ─── State Enum ──────────────────────────────────────────────────────────────
+
+enum _StudyAiState { upload, processing, quiz, results }
+
+// ─── Model ───────────────────────────────────────────────────────────────────
+
+class _Question {
+  final String question;
+  final List<String> options;
+  final int correctIndex;
+  final String explanation;
+
+  const _Question({
+    required this.question,
+    required this.options,
+    required this.correctIndex,
+    required this.explanation,
+  });
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 class StudyAiScreen extends StatefulWidget {
   const StudyAiScreen({super.key});
@@ -30,1595 +47,916 @@ class StudyAiScreen extends StatefulWidget {
 class _StudyAiScreenState extends State<StudyAiScreen>
     with TickerProviderStateMixin {
 
-  // ── Screen state ──────────────────────────────────────────────────
-  _StudyState _screenState  = _StudyState.idle;
-  String      _processingMsg = 'Analyze kiya ja raha hai...';
-  String?     _errorMsg;
+  // ── State ─────────────────────────────────────────────────────────────────
+  _StudyAiState _state = _StudyAiState.upload;
+  List<_Question> _questions = [];
+  int _currentQ = 0;
+  int _selectedOption = -1;
+  bool _showAnswer = false;
+  int _correctCount = 0;
+  String _errorMsg = '';
 
-  // ── Preview pool (all generated questions) ─────────────────────────
-  List<StudyQuestion> _allQuestions  = [];
-  Set<int>            _expandedQ     = {};  // expanded card indices
-  bool                _isLoadingMore = false;
+  // ── Progress (FIX: loading progress bar) ─────────────────────────────────
+  late AnimationController _progressCtrl;
+  late AnimationController _brainSpinCtrl;
+  Timer? _elapsedTimer;
+  int _elapsedSec = 0;
 
-  // ── Source tracking (for Load More) ──────────────────────────────
-  File? _sourceFile;
-  bool  _sourceIsImage  = true;
-  int   _pdfPageOffset  = 0;   // next startPage for PDF batch
-  int   _pdfTotalPages  = 0;
-  int   _imageRound     = 1;   // increments for image variety
+  // ── Quiz answer animation ─────────────────────────────────────────────────
+  late AnimationController _optionAnim;
 
-  // ── Active quiz state ─────────────────────────────────────────────
-  List<StudyQuestion> _questions    = [];
-  int   _currentIndex   = 0;
-  int   _score          = 0;
-  int?  _selectedOption;
-  bool  _showExplanation = false;
+  // ── Services ──────────────────────────────────────────────────────────────
+  final _groq = GroqService();
+  final _imgPicker = ImagePicker();
 
-  // ── Animations ────────────────────────────────────────────────────
-  late final AnimationController _bounceCtrl;
-  late final Animation<double>   _bounceAnim;
-  late final AnimationController _fadeCtrl;
-  late final Animation<double>   _fadeAnim;
+  // ── Processing status messages (rotate while loading) ────────────────────
+  final List<String> _processingMsgs = [
+    'Notes padhh raha hai... 📖',
+    'Questions soch raha hai... 🤔',
+    'MCQs bana raha hai... ✏️',
+    'Almost done... ⚡',
+  ];
+  int _msgIndex = 1; // start at "Questions soch raha hai"
+  Timer? _msgTimer;
 
-  // ── Getters ───────────────────────────────────────────────────────
-  bool get _canLoadMore {
-    if (_sourceFile == null) return false;
-    if (_sourceIsImage) return true;       // unlimited image rounds
-    return _pdfPageOffset < _pdfTotalPages;
-  }
-
-  bool get _pdfAllLoaded =>
-      !_sourceIsImage && _pdfTotalPages > 0 && _pdfPageOffset >= _pdfTotalPages;
-
-  // ─────────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    _bounceCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 450));
-    _bounceAnim =
-        CurvedAnimation(parent: _bounceCtrl, curve: Curves.elasticOut);
-    _fadeCtrl = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 300),
-        value: 1.0);
-    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeIn);
+    _progressCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500))
+      ..addListener(() => setState(() {}));
+
+    _brainSpinCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+
+    _optionAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
   }
 
   @override
   void dispose() {
-    _bounceCtrl.dispose();
-    _fadeCtrl.dispose();
+    _progressCtrl.dispose();
+    _brainSpinCtrl.dispose();
+    _optionAnim.dispose();
+    _elapsedTimer?.cancel();
+    _msgTimer?.cancel();
     super.dispose();
   }
 
-  void _animateIn() {
-    _bounceCtrl.forward(from: 0);
-    _fadeCtrl.forward(from: 0);
+  // ── Progress Helpers ──────────────────────────────────────────────────────
+
+  void _startProgress() {
+    _elapsedSec = 0;
+    _msgIndex = 0;
+    _progressCtrl.value = 0;
+
+    // Animate progress to 0.85 over 40 seconds (eases out near the end)
+    _progressCtrl.animateTo(
+      0.85,
+      duration: const Duration(seconds: 40),
+      curve: Curves.easeOut,
+    );
+
+    // Elapsed second counter
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _elapsedSec++);
+    });
+
+    // Rotate processing messages every ~8 seconds
+    _msgTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (mounted) {
+        setState(() {
+          _msgIndex = (_msgIndex + 1) % _processingMsgs.length;
+        });
+      }
+    });
   }
 
-  // ══════════════════════════════════════════
-  //  SOURCE PICKING
-  // ══════════════════════════════════════════
-
-  Future<void> _pickCamera() async {
-    final picked = await ImagePicker().pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 85);
-    if (picked == null || !mounted) return;
-    _processImage(File(picked.path));
+  void _finishProgress() {
+    _elapsedTimer?.cancel();
+    _msgTimer?.cancel();
+    _progressCtrl.animateTo(1.0, duration: const Duration(milliseconds: 400));
   }
 
-  Future<void> _pickGallery() async {
-    final picked = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1280,
-        maxHeight: 1280,
-        imageQuality: 85);
-    if (picked == null || !mounted) return;
-    _processImage(File(picked.path));
+  void _stopProgress() {
+    _elapsedTimer?.cancel();
+    _msgTimer?.cancel();
+    _progressCtrl.stop();
+    _progressCtrl.value = 0;
+  }
+
+  String get _elapsedLabel {
+    if (_elapsedSec < 60) return '${_elapsedSec}s';
+    return '${_elapsedSec ~/ 60}m ${_elapsedSec % 60}s';
+  }
+
+  // ── File Processing ───────────────────────────────────────────────────────
+
+  Future<void> _pickImage() async {
+    final src = await showDialog<ImageSource>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.bgCard,
+        title: const Text('Photo Source', style: TextStyle(color: Colors.white)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ImageSource.camera),
+            child: const Text('Camera', style: TextStyle(color: AppTheme.accentCyan)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ImageSource.gallery),
+            child: const Text('Gallery', style: TextStyle(color: AppTheme.accentViolet)),
+          ),
+        ],
+      ),
+    );
+    if (src == null) return;
+
+    final xFile = await _imgPicker.pickImage(source: src, imageQuality: 85);
+    if (xFile == null) return;
+
+    await _processImage(File(xFile.path));
   }
 
   Future<void> _pickPdf() async {
     final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom, allowedExtensions: ['pdf']);
-    if (result == null || result.files.isEmpty || !mounted) return;
-    final path = result.files.first.path;
-    if (path == null) return;
-    _processPdf(File(path));
-  }
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+    if (result == null || result.files.isEmpty) return;
 
-  // ══════════════════════════════════════════
-  //  PROCESSING — first batch generation
-  // ══════════════════════════════════════════
+    final file = File(result.files.first.path!);
+    await _processPdf(file);
+  }
 
   Future<void> _processImage(File file) async {
     setState(() {
-      _screenState   = _StudyState.processing;
-      _processingMsg = 'Photo analyze ho rahi hai... 📷\nAI questions bana raha hai';
-      _errorMsg      = null;
-      _sourceFile    = file;
-      _sourceIsImage = true;
-      _imageRound    = 1;
-      _allQuestions  = [];
-      _expandedQ     = {};
+      _state = _StudyAiState.processing;
+      _errorMsg = '';
     });
+    _startProgress();
+
     try {
-      final qs =
-          await StudyAiService.instance.generateBatchFromImage(file, round: 1);
-      if (!mounted) return;
-      setState(() {
-        _allQuestions = qs;
-        _imageRound   = 2;
-        _screenState  = _StudyState.preview;
-      });
+      final bytes = await file.readAsBytes();
+      final b64 = base64Encode(bytes);
+
+      final ext = file.path.split('.').last.toLowerCase();
+      final mime = (ext == 'png') ? 'image/png' : 'image/jpeg';
+
+      final raw = await _groq.analyzeImage(
+        base64Image: b64,
+        mediaType: mime,
+        prompt: _imageSystemPrompt,
+      );
+
+      _finishProgress();
+      await Future.delayed(const Duration(milliseconds: 400));
+      _parseAndShowQuiz(raw);
     } catch (e) {
-      if (!mounted) return;
+      _stopProgress();
       setState(() {
-        _screenState = _StudyState.idle;
-        _errorMsg    = e.toString().replaceAll('Exception: ', '');
+        _state = _StudyAiState.upload;
+        _errorMsg = _friendlyError(e);
       });
     }
   }
 
   Future<void> _processPdf(File file) async {
     setState(() {
-      _screenState   = _StudyState.processing;
-      _processingMsg = 'PDF padha ja raha hai... 📄\nPages count ho rahi hai';
-      _errorMsg      = null;
-      _sourceFile    = file;
-      _sourceIsImage = false;
-      _pdfPageOffset = 0;
-      _pdfTotalPages = 0;
-      _allQuestions  = [];
-      _expandedQ     = {};
+      _state = _StudyAiState.processing;
+      _errorMsg = '';
     });
+    _startProgress();
+
     try {
-      final totalPages = await StudyAiService.instance.getPdfPageCount(file);
-      if (!mounted) return;
-      setState(() {
-        _pdfTotalPages = totalPages;
-        _processingMsg = 'Pages 1–5 se questions ban rahe hain... ✨';
-      });
-      final qs =
-          await StudyAiService.instance.generateBatchFromPdf(file, startPage: 0);
-      if (!mounted) return;
-      setState(() {
-        _allQuestions  = qs;
-        _pdfPageOffset = _kPdfPageBatch;
-        _screenState   = _StudyState.preview;
-      });
+      final bytes = await file.readAsBytes();
+      final doc = PdfDocument(inputBytes: bytes);
+      final extractor = PdfTextExtractor(doc);
+      final text = extractor.extractText();
+      doc.dispose();
+
+      if (text.trim().isEmpty) {
+        throw Exception('PDF mein koi text nahi mila (scanned PDF ho sakta hai).');
+      }
+
+      final raw = await _groq.generateStudyQuestions(
+        content: text.substring(0, math.min(text.length, 8000)),
+        systemPrompt: _pdfSystemPrompt,
+      );
+
+      _finishProgress();
+      await Future.delayed(const Duration(milliseconds: 400));
+      _parseAndShowQuiz(raw);
     } catch (e) {
-      if (!mounted) return;
+      _stopProgress();
       setState(() {
-        _screenState = _StudyState.idle;
-        _errorMsg    = e.toString().replaceAll('Exception: ', '');
+        _state = _StudyAiState.upload;
+        _errorMsg = _friendlyError(e);
       });
     }
   }
 
-  // ══════════════════════════════════════════
-  //  LOAD MORE
-  // ══════════════════════════════════════════
+  String _friendlyError(Object e) {
+    final s = e.toString();
+    if (s.contains('429') || s.contains('rate limit') || s.contains('Rate limit')) {
+      return 'Rate limit hit — AI retry kar raha tha lekin nahi hua. Thodi der baad dobara try karo.';
+    }
+    if (s.contains('timeout') || s.contains('TimeoutException')) {
+      return 'Request timeout — internet check karo aur dobara try karo.';
+    }
+    return 'Error: $s';
+  }
 
-  Future<void> _loadMore() async {
-    if (_isLoadingMore || !_canLoadMore) return;
-    setState(() => _isLoadingMore = true);
+  // ── Quiz Parsing ──────────────────────────────────────────────────────────
+
+  void _parseAndShowQuiz(String raw) {
     try {
-      List<StudyQuestion> qs;
-      if (_sourceIsImage) {
-        qs = await StudyAiService.instance
-            .generateBatchFromImage(_sourceFile!, round: _imageRound);
-        if (mounted) setState(() => _imageRound++);
-      } else {
-        qs = await StudyAiService.instance
-            .generateBatchFromPdf(_sourceFile!, startPage: _pdfPageOffset);
-        if (mounted) setState(() => _pdfPageOffset += _kPdfPageBatch);
-      }
-      if (!mounted) return;
+      // Expect JSON array of {question, options:[...], correct_index, explanation}
+      final cleaned = raw.replaceAll(RegExp(r'```json|```'), '').trim();
+      final list = jsonDecode(cleaned) as List<dynamic>;
+
+      _questions = list.map((e) {
+        final m = e as Map<String, dynamic>;
+        return _Question(
+          question: m['question'] as String,
+          options: List<String>.from(m['options'] as List),
+          correctIndex: m['correct_index'] as int,
+          explanation: m['explanation'] as String? ?? '',
+        );
+      }).toList();
+
       setState(() {
-        _allQuestions.addAll(qs);
-        _isLoadingMore = false;
+        _currentQ = 0;
+        _selectedOption = -1;
+        _showAnswer = false;
+        _correctCount = 0;
+        _state = _StudyAiState.quiz;
       });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoadingMore = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: Colors.red.shade800,
-          behavior: SnackBarBehavior.floating,
-        ));
-      }
+    } catch (_) {
+      setState(() {
+        _state = _StudyAiState.upload;
+        _errorMsg = 'Questions parse nahi hue. Dobara try karo.';
+      });
     }
   }
 
-  // ══════════════════════════════════════════
-  //  PREVIEW ACTIONS
-  // ══════════════════════════════════════════
-
-  void _confirmDelete(int idx) {
-    final q = _allQuestions[idx];
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1B2E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Question?',
-            style: TextStyle(
-                color: Colors.white, fontFamily: 'Poppins', fontSize: 15)),
-        content: Text(
-          q.question,
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          style:
-              const TextStyle(color: Colors.white60, fontSize: 13, height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child:
-                const Text('Raho', style: TextStyle(color: Colors.white54)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _deleteAt(idx);
-            },
-            child: const Text('Delete 🗑',
-                style: TextStyle(color: Colors.redAccent)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _deleteAt(int idx) {
-    setState(() {
-      _allQuestions.removeAt(idx);
-      // Shift expanded set indices
-      final newExp = <int>{};
-      for (final e in _expandedQ) {
-        if (e < idx) newExp.add(e);
-        else if (e > idx) newExp.add(e - 1);
-        // e == idx → deleted, skip
-      }
-      _expandedQ = newExp;
-    });
-  }
-
-  void _startTest() {
-    if (_allQuestions.isEmpty) return;
-    _startQuiz(List.from(_allQuestions));
-  }
-
-  // ══════════════════════════════════════════
-  //  QUIZ ACTIONS
-  // ══════════════════════════════════════════
-
-  void _startQuiz(List<StudyQuestion> questions) {
-    setState(() {
-      _questions       = questions;
-      _currentIndex    = 0;
-      _score           = 0;
-      _selectedOption  = null;
-      _showExplanation = false;
-      _screenState     = _StudyState.quiz;
-    });
-    _animateIn();
-  }
-
-  void _selectOption(int idx) {
-    if (_selectedOption != null) return;
-    setState(() {
-      _selectedOption  = idx;
-      _showExplanation = true;
-      if (idx == _questions[_currentIndex].correctIndex) _score++;
-    });
-  }
-
-  void _next() {
-    if (_currentIndex < _questions.length - 1) {
-      setState(() {
-        _currentIndex++;
-        _selectedOption  = null;
-        _showExplanation = false;
-      });
-      _animateIn();
-    }
-  }
-
-  void _submitTest() {
-    setState(() => _screenState = _StudyState.result);
-    _animateIn();
-  }
-
-  void _replay() => _startQuiz(List.from(_questions));
-
-  void _backToPreview() => setState(() => _screenState = _StudyState.preview);
-
-  void _reset() {
-    setState(() {
-      _screenState   = _StudyState.idle;
-      _questions     = [];
-      _allQuestions  = [];
-      _expandedQ     = {};
-      _currentIndex  = 0;
-      _score         = 0;
-      _selectedOption  = null;
-      _showExplanation = false;
-      _errorMsg      = null;
-      _sourceFile    = null;
-      _sourceIsImage = true;
-      _pdfPageOffset = 0;
-      _pdfTotalPages = 0;
-      _imageRound    = 1;
-      _isLoadingMore = false;
-    });
-  }
-
-  void _showExitDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1B2E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Test Chhodna Hai?',
-            style: TextStyle(
-                color: Colors.white, fontFamily: 'Poppins', fontSize: 16)),
-        content: Text(
-          'Abhi tak $_score / ${_currentIndex + 1} correct.\n'
-          'Kya karna chahte ho?',
-          style:
-              const TextStyle(color: Colors.white60, fontSize: 13, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Ruko ↩',
-                style: TextStyle(color: Colors.white54)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _submitTest();
-            },
-            child: const Text('Score Dekho 🏆',
-                style: TextStyle(color: Colors.amber)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _backToPreview();
-            },
-            child: const Text('Preview Par Jao 📋',
-                style: TextStyle(color: Colors.blueAccent)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _reset();
-            },
-            child:
-                const Text('Quit ✕', style: TextStyle(color: Colors.redAccent)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ══════════════════════════════════════════
-  //  BUILD
-  // ══════════════════════════════════════════
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Scaffold(
       backgroundColor: AppTheme.bgDeep,
-      appBar: _buildAppBar(accent),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        transitionBuilder: (child, anim) =>
-            FadeTransition(opacity: anim, child: child),
-        child: switch (_screenState) {
-          _StudyState.idle       => _buildIdle(),
-          _StudyState.processing => _buildProcessing(),
-          _StudyState.preview    => _buildPreview(),
-          _StudyState.quiz       => _buildQuiz(),
-          _StudyState.result     => _buildResult(),
-        },
-      ),
-    );
-  }
-
-  // ─── AppBar ───────────────────────────────────────────────────────
-  AppBar _buildAppBar(Color accent) {
-    return AppBar(
-      backgroundColor: AppTheme.bgDeep,
-      elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_rounded,
-            color: Colors.white70, size: 20),
-        onPressed: () {
-          switch (_screenState) {
-            case _StudyState.quiz:
-              _showExitDialog();
-            case _StudyState.result:
-              _backToPreview();
-            case _StudyState.preview:
-              _reset();
-            default:
-              context.pop();
-          }
-        },
-      ),
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [
-                const Color(0xFF10B981).withValues(alpha: 0.3),
-                accent.withValues(alpha: 0.2),
-              ]),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Text('📚', style: TextStyle(fontSize: 18)),
-          ),
-          const SizedBox(width: 10),
-          const Text('Study AI',
-              style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white)),
-        ],
-      ),
-      actions: [
-        // PREVIEW: Start Test button
-        if (_screenState == _StudyState.preview && _allQuestions.isNotEmpty)
-          TextButton.icon(
-            onPressed: _startTest,
-            icon: const Icon(Icons.play_arrow_rounded,
-                color: Color(0xFF10B981), size: 18),
-            label: Text(
-              'Start (${_allQuestions.length}) →',
-              style: const TextStyle(
-                  color: Color(0xFF10B981),
-                  fontFamily: 'Poppins',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13),
-            ),
-          ),
-
-        // QUIZ: Score + Submit + End
-        if (_screenState == _StudyState.quiz) ...[
-          // Live score chip
-          Container(
-            margin: const EdgeInsets.only(top: 12, bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-              border:
-                  Border.all(color: Colors.amber.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.star_rounded,
-                    color: Colors.amber, size: 16),
-                const SizedBox(width: 4),
-                Text(
-                  '$_score/${_currentIndex + 1}',
-                  style: const TextStyle(
-                      color: Colors.amber,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 4),
-          // Submit Test
-          TextButton.icon(
-            onPressed: _submitTest,
-            icon: const Icon(Icons.check_circle_rounded,
-                color: Colors.greenAccent, size: 18),
-            label: const Text('Submit',
-                style: TextStyle(
-                    color: Colors.greenAccent,
-                    fontFamily: 'Poppins',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13)),
-            style:
-                TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6)),
-          ),
-          // End Test (exit dialog)
-          IconButton(
-            icon: const Icon(Icons.stop_circle_outlined,
-                color: Colors.white38, size: 22),
-            tooltip: 'Test Khatam Karo',
-            onPressed: _showExitDialog,
-          ),
-        ],
-      ],
-    );
-  }
-
-  // ══════════════════════════════════════════
-  //  IDLE
-  // ══════════════════════════════════════════
-  Widget _buildIdle() {
-    return SingleChildScrollView(
-      key: const ValueKey('idle'),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-      child: Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 24),
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(colors: [
-                const Color(0xFF10B981).withValues(alpha: 0.18),
-                AppTheme.bgDeep,
-              ]),
-            ),
-            child: const Text('📚', style: TextStyle(fontSize: 72)),
-          ),
-          const Text('Padhai Smart Karo! 🎯',
-              style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  fontFamily: 'Poppins')),
-          const SizedBox(height: 8),
-          const Text(
-            'Book ki photo lo ya PDF upload karo —\nAI unlimited questions banayega!',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                fontSize: 14,
-                color: AppTheme.textSecondary,
-                height: 1.6),
-          ),
-          const SizedBox(height: 32),
-
-          _UploadCard(
-            emoji: '📷',
-            title: 'Camera se Photo lo',
-            subtitle: 'Book ya notes ki photo kheecho',
-            gradient: [
-              const Color(0xFF7C3AED),
-              const Color(0xFF9D4EDD)
-            ],
-            onTap: _pickCamera,
-          ),
-          const SizedBox(height: 4),
-          _SmallOptionBtn(
-            icon: Icons.photo_library_rounded,
-            label: 'Ya Gallery se choose karo',
-            onTap: _pickGallery,
-            color: const Color(0xFF7C3AED),
-          ),
-          const SizedBox(height: 16),
-
-          _UploadCard(
-            emoji: '📄',
-            title: 'PDF Upload karo',
-            subtitle: 'Notes ya textbook ka PDF choose karo',
-            gradient: [
-              const Color(0xFF0EA5E9),
-              const Color(0xFF0284C7)
-            ],
-            onTap: _pickPdf,
-          ),
-          const SizedBox(height: 24),
-
-          // Error
-          if (_errorMsg != null) ...[
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(14),
-                border:
-                    Border.all(color: Colors.red.withValues(alpha: 0.30)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(top: 1),
-                    child: Icon(Icons.error_outline_rounded,
-                        color: Colors.redAccent, size: 18),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                      child: Text(_errorMsg!,
-                          style: const TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 13,
-                              height: 1.4))),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-
-          // Tips
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.bgCard,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.06)),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('💡 Tips for Best Results',
-                    style: TextStyle(
-                        color: Color(0xFF10B981),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13)),
-                SizedBox(height: 10),
-                _TipRow(
-                    icon: '✅',
-                    text: 'Clear aur achhi roshni mein photo lo'),
-                _TipRow(
-                    icon: '✅',
-                    text:
-                        'Pehle 10 questions generate honge — koi limit nahi!'),
-                _TipRow(
-                    icon: '🔄',
-                    text:
-                        '"Load More" se unlimited questions add karo'),
-                _TipRow(
-                    icon: '🗑',
-                    text:
-                        'Preview mein unwanted questions delete karo'),
-                _TipRow(
-                    icon: '▶',
-                    text:
-                        'Jab ready ho, Start Test → Submit/End karo'),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ══════════════════════════════════════════
-  //  PROCESSING
-  // ══════════════════════════════════════════
-  Widget _buildProcessing() {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Center(
-      key: const ValueKey('processing'),
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      appBar: AppBar(
+        backgroundColor: AppTheme.bgDeep,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70),
+          onPressed: () => Navigator.maybePop(context),
+        ),
+        title: Row(
           children: [
-            SizedBox(
-              width: 80,
-              height: 80,
-              child: CircularProgressIndicator(
-                  strokeWidth: 3, color: accent),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF6C63FF), Color(0xFF00D4AA)],
+                ),
+              ),
+              child: const Icon(Icons.school_rounded, color: Colors.white, size: 20),
             ),
-            const SizedBox(height: 32),
-            Text(_processingMsg,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                    height: 1.5)),
-            const SizedBox(height: 12),
+            const SizedBox(width: 10),
             const Text(
-              'AI questions bana raha hai — thoda wait karo...',
-              textAlign: TextAlign.center,
+              'Study AI',
               style: TextStyle(
-                  color: AppTheme.textSecondary, fontSize: 13),
+                color: Colors.white,
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w600,
+                fontSize: 18,
+              ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  // ══════════════════════════════════════════
-  //  PREVIEW
-  // ══════════════════════════════════════════
-  Widget _buildPreview() {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Column(
-      key: const ValueKey('preview'),
-      children: [
-        // ── Header bar ──────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-          child: Row(
-            children: [
-              // Count chip
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                      color:
-                          const Color(0xFF10B981).withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('📋',
-                        style: TextStyle(fontSize: 13)),
-                    const SizedBox(width: 5),
-                    Text(
-                      '${_allQuestions.length} Questions',
-                      style: const TextStyle(
-                          color: Color(0xFF10B981),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              // Source label
-              Text(
-                _sourceIsImage
-                    ? '📷 Round $_imageRound'
-                    : '📄 ${_pdfPageOffset.clamp(0, _pdfTotalPages)}/$_pdfTotalPages pages',
-                style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 11),
-              ),
-            ],
-          ),
-        ),
-
-        // ── Questions list ───────────────────────────────────────────
-        Expanded(
-          child: _allQuestions.isEmpty
-              ? _buildEmptyPreview()
-              : ListView.builder(
-                  padding:
-                      const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                  itemCount: _allQuestions.length,
-                  itemBuilder: (_, i) =>
-                      _buildPreviewCard(i, accent),
-                ),
-        ),
-
-        // ── Footer: Load More + Start ────────────────────────────────
-        _buildPreviewFooter(accent),
-      ],
-    );
-  }
-
-  Widget _buildEmptyPreview() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text('😶', style: TextStyle(fontSize: 56)),
-          const SizedBox(height: 16),
-          const Text('Koi question nahi bacha!',
-              style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          const Text(
-              '"Load More" ya naya topic choose karo',
-              style: TextStyle(
-                  color: AppTheme.textSecondary, fontSize: 13)),
-          const SizedBox(height: 24),
-          OutlinedButton.icon(
-            onPressed: _reset,
-            icon: const Icon(Icons.upload_file_rounded, size: 16),
-            label: const Text('Naya Topic'),
-            style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white54),
-          ),
-        ],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 400),
+        child: switch (_state) {
+          _StudyAiState.upload    => _buildUploadState(),
+          _StudyAiState.processing => _buildProcessingState(),
+          _StudyAiState.quiz      => _buildQuizState(),
+          _StudyAiState.results   => _buildResultsState(),
+        },
       ),
     );
   }
 
-  Widget _buildPreviewCard(int i, Color accent) {
-    final q        = _allQuestions[i];
-    final expanded = _expandedQ.contains(i);
+  // ── Upload State ──────────────────────────────────────────────────────────
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 9),
-      decoration: BoxDecoration(
-        color: AppTheme.bgCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: expanded
-              ? accent.withValues(alpha: 0.32)
-              : Colors.white.withValues(alpha: 0.07),
-        ),
-      ),
+  Widget _buildUploadState() {
+    return SingleChildScrollView(
+      key: const ValueKey('upload'),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Question header row ──────────────────────────────────
-          InkWell(
-            onTap: () => setState(() {
-              if (expanded) _expandedQ.remove(i);
-              else _expandedQ.add(i);
-            }),
-            borderRadius: BorderRadius.circular(14),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 11, 8, 11),
+          const Text(
+            'Apne notes scan karo\nya PDF upload karo',
+            style: TextStyle(
+              color: Colors.white,
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w700,
+              fontSize: 22,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'AI MCQ questions banayega — bilkul exam jaisa 🎯',
+            style: TextStyle(color: Colors.white60, fontFamily: 'Poppins', fontSize: 14),
+          ),
+
+          if (_errorMsg.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
+              ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Number badge
-                  Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Center(
-                      child: Text('${i + 1}',
-                          style: TextStyle(
-                              color: accent,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 11)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  // Question text
+                  const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      q.question,
-                      maxLines: expanded ? null : 2,
-                      overflow: expanded
-                          ? null
-                          : TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: Color(0xDEFFFFFF), // white87 equivalent
-                          fontSize: 13,
-                          height: 1.4,
-                          fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  // Expand icon
-                  Icon(
-                    expanded
-                        ? Icons.expand_less_rounded
-                        : Icons.expand_more_rounded,
-                    color: Colors.white38,
-                    size: 20,
-                  ),
-                  // Delete icon
-                  GestureDetector(
-                    onTap: () => _confirmDelete(i),
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: Icon(
-                        Icons.delete_outline_rounded,
-                        color: Colors.red.withValues(alpha: 0.5),
-                        size: 19,
-                      ),
+                      _errorMsg,
+                      style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontFamily: 'Poppins'),
                     ),
                   ),
                 ],
               ),
             ),
+          ],
+
+          const SizedBox(height: 32),
+
+          // Camera / Gallery option
+          _UploadOptionCard(
+            icon: Icons.camera_alt_rounded,
+            color: AppTheme.accentCyan,
+            title: 'Notes Photo Lo',
+            subtitle: 'Camera ya gallery se photo lo',
+            onTap: _pickImage,
           ),
 
-          // ── Expanded: options + explanation ──────────────────────
-          if (expanded) ...[
-            Container(
-              height: 1,
-              margin:
-                  const EdgeInsets.symmetric(horizontal: 12),
-              color: Colors.white.withValues(alpha: 0.06),
+          const SizedBox(height: 16),
+
+          // PDF option
+          _UploadOptionCard(
+            icon: Icons.picture_as_pdf_rounded,
+            color: AppTheme.accentViolet,
+            title: 'PDF Upload Karo',
+            subtitle: 'Study material PDF se questions banao',
+            onTap: _pickPdf,
+          ),
+
+          const SizedBox(height: 32),
+
+          Center(
+            child: Text(
+              'SSC CGL, UPSC, Banking — sab ke liye',
+              style: TextStyle(color: Colors.white.withOpacity(0.35), fontSize: 12, fontFamily: 'Poppins'),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
-              child: Column(
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Processing State (FIX: progress bar added) ────────────────────────────
+
+  Widget _buildProcessingState() {
+    return Center(
+      key: const ValueKey('processing'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+
+            // ── Brain icon with spinning arc ──────────────────────────────
+            SizedBox(
+              width: 120,
+              height: 120,
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  // Options
-                  ...List.generate(4, (j) {
-                    final isCorrect = j == q.correctIndex;
-                    const labels   = ['A', 'B', 'C', 'D'];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isCorrect
-                            ? const Color(0xFF10B981)
-                                .withValues(alpha: 0.10)
-                            : Colors.white.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isCorrect
-                              ? const Color(0xFF10B981)
-                                  .withValues(alpha: 0.35)
-                              : Colors.transparent,
+                  // Spinning green arc
+                  AnimatedBuilder(
+                    animation: _brainSpinCtrl,
+                    builder: (_, __) => Transform.rotate(
+                      angle: _brainSpinCtrl.value * 2 * math.pi,
+                      child: CustomPaint(
+                        size: const Size(120, 120),
+                        painter: _ArcPainter(
+                          color: AppTheme.accentCyan,
+                          strokeWidth: 3,
+                          sweepFraction: 0.72,
                         ),
                       ),
-                      child: Row(
-                        children: [
-                          Text(labels[j],
-                              style: TextStyle(
-                                  color: isCorrect
-                                      ? const Color(0xFF10B981)
-                                      : Colors.white38,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                              child: Text(q.options[j],
-                                  style: TextStyle(
-                                      color: isCorrect
-                                          ? const Color(
-                                              0xFF6EE7B7)
-                                          : Colors.white54,
-                                      fontSize: 12,
-                                      height: 1.3))),
-                          if (isCorrect)
-                            const Icon(
-                                Icons.check_circle_rounded,
-                                color: Color(0xFF10B981),
-                                size: 14),
-                        ],
-                      ),
-                    );
-                  }),
-                  // Explanation
-                  if (q.explanation.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(10),
-                      margin: const EdgeInsets.only(bottom: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withValues(alpha: 0.07),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                            color: Colors.amber.withValues(alpha: 0.18)),
-                      ),
-                      child: Row(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          const Text('💡',
-                              style: TextStyle(fontSize: 12)),
-                          const SizedBox(width: 6),
-                          Expanded(
-                              child: Text(q.explanation,
-                                  style: const TextStyle(
-                                      color: Colors.amber,
-                                      fontSize: 11,
-                                      height: 1.4))),
-                        ],
-                      ),
                     ),
-                  ],
+                  ),
+                  // Brain emoji / icon
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: AppTheme.bgCard,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Text('🧠', style: TextStyle(fontSize: 36)),
+                    ),
+                  ),
                 ],
               ),
             ),
+
+            const SizedBox(height: 28),
+
+            // ── Rotating status message ───────────────────────────────────
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              child: Text(
+                _processingMsgs[_msgIndex],
+                key: ValueKey(_msgIndex),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 20,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Dot indicator ─────────────────────────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(4, (i) {
+                final active = i == _msgIndex % 4;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: active ? 20 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: active ? AppTheme.accentCyan : Colors.white24,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                );
+              }),
+            ),
+
+            const SizedBox(height: 24),
+
+            // ── FIX: Linear Progress Bar ──────────────────────────────────
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: _progressCtrl.value,
+                minHeight: 6,
+                backgroundColor: Colors.white.withOpacity(0.08),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Color.lerp(AppTheme.accentCyan, AppTheme.accentViolet,
+                      _progressCtrl.value)!,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            // ── Elapsed time + percentage ─────────────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '⏱ $_elapsedLabel',
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 12,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+                Text(
+                  '${(_progressCtrl.value * 100).toInt()}%',
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 12,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            Text(
+              'AI questions bana raha hai — thoda wait karo...',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.5),
+                fontFamily: 'Poppins',
+                fontSize: 13,
+              ),
+            ),
           ],
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildPreviewFooter(Color accent) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
-      decoration: BoxDecoration(
-        color: AppTheme.bgDeep,
-        border: Border(
-            top: BorderSide(
-                color: Colors.white.withValues(alpha: 0.07))),
-      ),
+  // ── Quiz State ────────────────────────────────────────────────────────────
+
+  Widget _buildQuizState() {
+    if (_questions.isEmpty) return const SizedBox.shrink();
+
+    final q = _questions[_currentQ];
+    final optionLabels = ['A', 'B', 'C', 'D'];
+
+    return SingleChildScrollView(
+      key: const ValueKey('quiz'),
+      padding: const EdgeInsets.all(20),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Load More / All Loaded
-          if (_canLoadMore || _isLoadingMore)
-            GestureDetector(
-              onTap: _isLoadingMore ? null : _loadMore,
-              child: Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 11),
-                margin: const EdgeInsets.only(bottom: 10),
+          // Progress
+          Row(
+            children: [
+              Text(
+                'Q ${_currentQ + 1} / ${_questions.length}',
+                style: const TextStyle(
+                  color: AppTheme.accentCyan,
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: (_currentQ + 1) / _questions.length,
+                    backgroundColor: Colors.white10,
+                    color: AppTheme.accentCyan,
+                    minHeight: 4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // Question
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: AppTheme.bgCard,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withOpacity(0.08)),
+            ),
+            child: Text(
+              q.question,
+              style: const TextStyle(
+                color: Colors.white,
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                height: 1.5,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Options
+          ...List.generate(q.options.length, (i) {
+            Color bg = AppTheme.bgCard;
+            Color border = Colors.white12;
+            Color textColor = Colors.white70;
+
+            if (_selectedOption == i) {
+              if (_showAnswer) {
+                if (i == q.correctIndex) {
+                  bg = Colors.green.withOpacity(0.15);
+                  border = Colors.green;
+                  textColor = Colors.white;
+                } else {
+                  bg = Colors.red.withOpacity(0.15);
+                  border = Colors.redAccent;
+                  textColor = Colors.white;
+                }
+              } else {
+                bg = AppTheme.accentViolet.withOpacity(0.15);
+                border = AppTheme.accentViolet;
+                textColor = Colors.white;
+              }
+            } else if (_showAnswer && i == q.correctIndex) {
+              bg = Colors.green.withOpacity(0.12);
+              border = Colors.green.withOpacity(0.6);
+              textColor = Colors.white;
+            }
+
+            return GestureDetector(
+              onTap: _showAnswer ? null : () {
+                setState(() {
+                  _selectedOption = i;
+                  _showAnswer = true;
+                  if (i == q.correctIndex) _correctCount++;
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
+                  color: bg,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.10)),
+                  border: Border.all(color: border),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (_isLoadingMore)
-                      const SizedBox(
-                          width: 15,
-                          height: 15,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white54))
-                    else
-                      const Icon(
-                          Icons.add_circle_outline_rounded,
-                          color: Colors.white54,
-                          size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      _isLoadingMore
-                          ? 'Questions load ho rahe hain...'
-                          : _sourceIsImage
-                              ? 'Aur Questions Generate Karo 🔄'
-                              : 'Agle Pages Se Load Karo 📄',
-                      style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500),
+                    Container(
+                      width: 32,
+                      height: 32,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: border.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        optionLabels[i],
+                        style: TextStyle(
+                          color: border == Colors.white12 ? Colors.white54 : border,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
                     ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        q.options[i],
+                        style: TextStyle(
+                          color: textColor,
+                          fontFamily: 'Poppins',
+                          fontSize: 14,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                    if (_showAnswer && i == q.correctIndex)
+                      const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20),
+                    if (_showAnswer && _selectedOption == i && i != q.correctIndex)
+                      const Icon(Icons.cancel_rounded, color: Colors.redAccent, size: 20),
                   ],
                 ),
               ),
-            )
-          else if (_pdfAllLoaded)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+            );
+          }),
+
+          // Explanation
+          if (_showAnswer && q.explanation.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.accentCyan.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.accentCyan.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.check_circle_outline_rounded,
-                      color: Color(0xFF10B981), size: 14),
-                  const SizedBox(width: 6),
+                  Row(
+                    children: const [
+                      Icon(Icons.lightbulb_rounded, color: AppTheme.accentCyan, size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        'Explanation',
+                        style: TextStyle(
+                          color: AppTheme.accentCyan,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          fontFamily: 'Poppins',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
                   Text(
-                    'Saari PDF load ho gayi! ($_pdfTotalPages pages)',
+                    q.explanation,
                     style: const TextStyle(
-                        color: Color(0xFF10B981),
-                        fontSize: 12),
+                      color: Colors.white70,
+                      fontSize: 13,
+                      fontFamily: 'Poppins',
+                      height: 1.5,
+                    ),
                   ),
                 ],
               ),
             ),
+          ],
 
-          // Start Test button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _allQuestions.isEmpty ? null : _startTest,
-              icon: const Icon(
-                  Icons.play_circle_filled_rounded,
-                  size: 20),
-              label: Text(
-                _allQuestions.isEmpty
-                    ? 'Koi Question Nahi'
-                    : 'Start Test  (${_allQuestions.length} Questions) →',
-                style: const TextStyle(
+          if (_showAnswer) ...[
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  if (_currentQ < _questions.length - 1) {
+                    setState(() {
+                      _currentQ++;
+                      _selectedOption = -1;
+                      _showAnswer = false;
+                    });
+                  } else {
+                    setState(() => _state = _StudyAiState.results);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accentViolet,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: Text(
+                  _currentQ < _questions.length - 1 ? 'Next Question →' : 'Results Dekho 🏆',
+                  style: const TextStyle(
+                    color: Colors.white,
                     fontFamily: 'Poppins',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _allQuestions.isEmpty
-                    ? Colors.grey.shade800
-                    : const Color(0xFF10B981),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-                elevation: _allQuestions.isEmpty ? 0 : 4,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
-  // ══════════════════════════════════════════
-  //  QUIZ
-  // ══════════════════════════════════════════
-  Widget _buildQuiz() {
-    final question = _questions[_currentIndex];
-    final total    = _questions.length;
-    final accent   = Theme.of(context).colorScheme.primary;
-    final answered = _selectedOption != null;
-    final isLastQ  = _currentIndex >= total - 1;
+  // ── Results State ─────────────────────────────────────────────────────────
 
-    return ScaleTransition(
-      key:   const ValueKey('quiz'),
-      scale: _bounceAnim,
-      child: FadeTransition(
-        opacity: _fadeAnim,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Progress bar
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: accent.withValues(alpha: 0.3)),
-                    ),
-                    child: Text('Q ${_currentIndex + 1} / $total',
-                        style: TextStyle(
-                            color: accent,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12)),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: (_currentIndex + 1) / total,
-                        backgroundColor:
-                            Colors.white.withValues(alpha: 0.08),
-                        color: accent,
-                        minHeight: 6,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
+  Widget _buildResultsState() {
+    final percentage = _questions.isEmpty
+        ? 0
+        : ((_correctCount / _questions.length) * 100).round();
+    final stars = percentage >= 80
+        ? 3
+        : percentage >= 50
+            ? 2
+            : 1;
 
-              // Question card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      accent.withValues(alpha: 0.14),
-                      AppTheme.bgCard,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border:
-                      Border.all(color: accent.withValues(alpha: 0.22)),
-                  boxShadow: [
-                    BoxShadow(
-                        color: accent.withValues(alpha: 0.08),
-                        blurRadius: 20,
-                        spreadRadius: 2)
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      const Text('❓',
-                          style: TextStyle(fontSize: 16)),
-                      const SizedBox(width: 6),
-                      Text('Sawaal',
-                          style: TextStyle(
-                              color: accent,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600)),
-                    ]),
-                    const SizedBox(height: 10),
-                    Text(question.question,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            height: 1.5)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Options
-              ...List.generate(
-                  4, (i) => _buildOption(i, question, answered)),
-              const SizedBox(height: 12),
-
-              // Explanation
-              if (_showExplanation && question.explanation.isNotEmpty)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 350),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                        color: Colors.amber.withValues(alpha: 0.22)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('💡',
-                          style: TextStyle(fontSize: 16)),
-                      const SizedBox(width: 8),
-                      Expanded(
-                          child: Text(question.explanation,
-                              style: const TextStyle(
-                                  color: Colors.amber,
-                                  fontSize: 13,
-                                  height: 1.45))),
-                    ],
-                  ),
-                ),
-
-              // Navigation
-              if (answered) ...[
-                if (!isLastQ)
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _next,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: accent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 16),
-                        shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(16)),
-                        elevation: 4,
-                      ),
-                      child: const Text('Agla Sawaal  →',
-                          style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16)),
-                    ),
-                  )
-                else
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _submitTest,
-                      icon: const Icon(
-                          Icons.check_circle_rounded,
-                          size: 20),
-                      label: const Text('Submit Test  🏆',
-                          style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            const Color(0xFF10B981),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 16),
-                        shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(16)),
-                        elevation: 6,
-                      ),
-                    ),
-                  ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOption(int i, StudyQuestion q, bool answered) {
-    final accent     = Theme.of(context).colorScheme.primary;
-    final isSelected = _selectedOption == i;
-    final isCorrect  = i == q.correctIndex;
-
-    Color bgColor, borderColor, textColor;
-    if (!answered) {
-      bgColor     = AppTheme.bgCard;
-      borderColor = Colors.white.withValues(alpha: 0.10);
-      textColor   = Colors.white;
-    } else if (isCorrect) {
-      bgColor     = const Color(0xFF10B981).withValues(alpha: 0.14);
-      borderColor = const Color(0xFF10B981).withValues(alpha: 0.55);
-      textColor   = const Color(0xFF6EE7B7);
-    } else if (isSelected) {
-      bgColor     = Colors.red.withValues(alpha: 0.12);
-      borderColor = Colors.red.withValues(alpha: 0.45);
-      textColor   = const Color(0xFFFCA5A5);
-    } else {
-      bgColor     = AppTheme.bgCard.withValues(alpha: 0.45);
-      borderColor = Colors.white.withValues(alpha: 0.04);
-      textColor   = AppTheme.textSecondary;
-    }
-
-    const labels = ['A', 'B', 'C', 'D'];
-    IconData? trailingIcon;
-    Color?    trailingColor;
-    if (answered && isCorrect) {
-      trailingIcon  = Icons.check_circle_rounded;
-      trailingColor = const Color(0xFF10B981);
-    } else if (answered && isSelected && !isCorrect) {
-      trailingIcon  = Icons.cancel_rounded;
-      trailingColor = Colors.redAccent;
-    }
-
-    return GestureDetector(
-      onTap: answered ? null : () => _selectOption(i),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 280),
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(
-            horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: borderColor, width: 1.2),
-        ),
-        child: Row(
+    return Center(
+      key: const ValueKey('results'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: answered && isCorrect
-                    ? const Color(0xFF10B981).withValues(alpha: 0.25)
-                    : answered && isSelected && !isCorrect
-                        ? Colors.red.withValues(alpha: 0.25)
-                        : accent.withValues(alpha: 0.13),
-              ),
-              child: Center(
-                  child: Text(labels[i],
-                      style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                          color: answered && isCorrect
-                              ? const Color(0xFF10B981)
-                              : answered && isSelected && !isCorrect
-                                  ? Colors.redAccent
-                                  : accent))),
+            Text(
+              '⭐' * stars,
+              style: const TextStyle(fontSize: 48),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-                child: Text(q.options[i],
-                    style: TextStyle(
-                        color: textColor,
-                        fontSize: 14,
-                        fontWeight:
-                            (isSelected || (answered && isCorrect))
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                        height: 1.35))),
-            if (trailingIcon != null) ...[
-              const SizedBox(width: 8),
-              Icon(trailingIcon, color: trailingColor, size: 20),
-            ],
+            const SizedBox(height: 16),
+            Text(
+              '$percentage%',
+              style: TextStyle(
+                color: percentage >= 80 ? Colors.greenAccent : AppTheme.accentCyan,
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w800,
+                fontSize: 56,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '$_correctCount / ${_questions.length} correct',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontFamily: 'Poppins',
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              percentage >= 80
+                  ? 'Excellent! Ekdum ready ho! 🔥'
+                  : percentage >= 50
+                      ? 'Acha attempt! Thoda aur practice karo 💪'
+                      : 'Keep studying! Hosla mat haaro 📚',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white60, fontFamily: 'Poppins', fontSize: 14),
+            ),
+            const SizedBox(height: 40),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => setState(() {
+                      _state = _StudyAiState.quiz;
+                      _currentQ = 0;
+                      _selectedOption = -1;
+                      _showAnswer = false;
+                      _correctCount = 0;
+                    }),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppTheme.accentViolet),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Retry 🔄',
+                        style: TextStyle(color: AppTheme.accentViolet, fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => setState(() => _state = _StudyAiState.upload),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accentViolet,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('New Quiz ✨',
+                        style: TextStyle(color: Colors.white, fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  // ══════════════════════════════════════════
-  //  RESULT
-  // ══════════════════════════════════════════
-  Widget _buildResult() {
-    final accent   = Theme.of(context).colorScheme.primary;
-    final answered = _currentIndex + 1;
-    final pct      = answered == 0 ? 0 : (_score / answered * 100).round();
-    final stars    = (pct / 20).ceil().clamp(0, 5);
+  // ── System Prompts ────────────────────────────────────────────────────────
 
-    final (emoji, title, sub) = switch (pct) {
-      >= 80 => ('🏆', 'Zabardast!',    'Tu toh champion hai bhai!'),
-      >= 60 => ('⭐', 'Bahut Achha!',  'Aur thodi mehnat aur perfect hoga'),
-      >= 40 => ('💪', 'Theek Hai!',    'Dobara padh ke retry karo'),
-      _     => ('📖', 'Mehnat Karo!',  'Content phir se padho aur try karo'),
-    };
-
-    final scoreColor = pct >= 80
-        ? const Color(0xFF10B981)
-        : pct >= 60
-            ? Colors.amber
-            : pct >= 40
-                ? Colors.orange
-                : Colors.redAccent;
-
-    return ScaleTransition(
-      key:   const ValueKey('result'),
-      scale: _bounceAnim,
-      child: FadeTransition(
-        opacity: _fadeAnim,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-          child: Column(
-            children: [
-              Text(emoji, style: const TextStyle(fontSize: 80)),
-              const SizedBox(height: 12),
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      fontFamily: 'Poppins')),
-              const SizedBox(height: 6),
-              Text(sub,
-                  style: const TextStyle(
-                      color: AppTheme.textSecondary, fontSize: 15)),
-              const SizedBox(height: 36),
-
-              // Score circle
-              Container(
-                width: 180, height: 180,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(colors: [
-                    scoreColor.withValues(alpha: 0.20),
-                    AppTheme.bgCard
-                  ]),
-                  border: Border.all(
-                      color: scoreColor.withValues(alpha: 0.45), width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                        color: scoreColor.withValues(alpha: 0.20),
-                        blurRadius: 30)
-                  ],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('$_score',
-                        style: TextStyle(
-                            fontSize: 56,
-                            fontWeight: FontWeight.w900,
-                            color: scoreColor,
-                            fontFamily: 'Poppins',
-                            height: 1.1)),
-                    Text('of $answered correct',
-                        style: const TextStyle(
-                            color: AppTheme.textSecondary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 28),
-
-              // Stars
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  5,
-                  (i) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: Icon(
-                      i < stars
-                          ? Icons.star_rounded
-                          : Icons.star_outline_rounded,
-                      color: i < stars
-                          ? Colors.amber
-                          : Colors.white.withValues(alpha: 0.18),
-                      size: 38,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text('$pct% Score',
-                  style: TextStyle(
-                      color: scoreColor,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16)),
-              const SizedBox(height: 36),
-
-              _ReviewSummary(
-                  questions:
-                      _questions.sublist(0, _currentIndex + 1)),
-              const SizedBox(height: 28),
-
-              // ── Action buttons ──────────────────────────────────
-              // Row 1: Retest + Edit Preview
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _replay,
-                      icon: const Icon(Icons.replay_rounded, size: 18),
-                      label: const Text('Retest 🔁'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: accent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _backToPreview,
-                      icon: const Icon(Icons.list_alt_rounded, size: 18),
-                      label: const Text('Edit Preview'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white70,
-                        side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.2)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              // Row 2: New Topic
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _reset,
-                  icon:
-                      const Icon(Icons.upload_file_rounded, size: 18),
-                  label:
-                      const Text('Naya Topic Upload Karo 📤'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textSecondary,
-                    side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.10)),
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  static const _imageSystemPrompt = '''
+You are an expert exam question maker. The user has uploaded a photo of study notes.
+Generate exactly 5 MCQ questions from the visible content.
+Return ONLY valid JSON (no extra text, no markdown fences):
+[
+  {
+    "question": "Question text here?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct_index": 0,
+    "explanation": "Brief explanation of why this is correct."
   }
+]
+Make questions exam-style (SSC CGL / UPSC level). Do not add any text before or after the JSON.
+''';
+
+  static const _pdfSystemPrompt = '''
+You are an expert exam question maker. Based on the provided study material text,
+generate exactly 8 MCQ questions.
+Return ONLY valid JSON (no extra text, no markdown fences):
+[
+  {
+    "question": "Question text here?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct_index": 0,
+    "explanation": "Brief explanation of why this is correct."
+  }
+]
+Make questions exam-style (SSC CGL / UPSC level). Do not add any text before or after the JSON.
+''';
 }
 
-// ──────────────────────────────────────────────────────────────────────
-//  Helper Widgets
-// ──────────────────────────────────────────────────────────────────────
+// ─── Upload Option Card ────────────────────────────────────────────────────────
 
-class _UploadCard extends StatelessWidget {
-  final String emoji;
+class _UploadOptionCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
   final String title;
   final String subtitle;
-  final List<Color> gradient;
   final VoidCallback onTap;
 
-  const _UploadCard({
-    required this.emoji,
+  const _UploadOptionCard({
+    required this.icon,
+    required this.color,
     required this.title,
     required this.subtitle,
-    required this.gradient,
     required this.onTap,
   });
 
@@ -1629,56 +967,47 @@ class _UploadCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [gradient.first.withValues(alpha: 0.18), AppTheme.bgCard],
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: gradient.first.withValues(alpha: 0.40)),
-          boxShadow: [
-            BoxShadow(
-                color: gradient.first.withValues(alpha: 0.10),
-                blurRadius: 20,
-                spreadRadius: 1)
-          ],
+          color: AppTheme.bgCard,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: color.withOpacity(0.25)),
         ),
         child: Row(
           children: [
             Container(
-              width: 60, height: 60,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                    colors: gradient
-                        .map((c) => c.withValues(alpha: 0.5))
-                        .toList()),
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: Center(
-                  child: Text(emoji,
-                      style: const TextStyle(fontSize: 28))),
+              child: Icon(icon, color: color, size: 26),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: 'Poppins')),
-                  const SizedBox(height: 4),
-                  Text(subtitle,
-                      style: const TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 13)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Poppins',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontFamily: 'Poppins',
+                      fontSize: 13,
+                    ),
+                  ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded,
-                color: gradient.first.withValues(alpha: 0.7), size: 24),
+            Icon(Icons.arrow_forward_ios_rounded, color: color, size: 16),
           ],
         ),
       ),
@@ -1686,119 +1015,42 @@ class _UploadCard extends StatelessWidget {
   }
 }
 
-class _SmallOptionBtn extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final Color color;
+// ─── Arc Painter ──────────────────────────────────────────────────────────────
 
-  const _SmallOptionBtn({
-    required this.icon,
-    required this.label,
-    required this.onTap,
+class _ArcPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double sweepFraction; // 0..1
+
+  const _ArcPainter({
     required this.color,
+    required this.strokeWidth,
+    required this.sweepFraction,
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: TextButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon, size: 16, color: color.withValues(alpha: 0.7)),
-        label: Text(label,
-            style:
-                TextStyle(color: color.withValues(alpha: 0.7), fontSize: 12)),
-        style: TextButton.styleFrom(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
-      ),
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final rect = Rect.fromLTWH(strokeWidth / 2, strokeWidth / 2,
+        size.width - strokeWidth, size.height - strokeWidth);
+
+    canvas.drawArc(
+      rect,
+      -math.pi / 2,
+      2 * math.pi * sweepFraction,
+      false,
+      paint,
     );
   }
-}
-
-class _TipRow extends StatelessWidget {
-  final String icon;
-  final String text;
-  const _TipRow({required this.icon, required this.text});
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(icon, style: const TextStyle(fontSize: 11)),
-          const SizedBox(width: 6),
-          Expanded(
-              child: Text(text,
-                  style: const TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 12,
-                      height: 1.4))),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReviewSummary extends StatelessWidget {
-  final List<StudyQuestion> questions;
-  const _ReviewSummary({required this.questions});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.bgCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('📋 Quick Review',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14)),
-          const SizedBox(height: 12),
-          ...List.generate(questions.length, (i) {
-            final q = questions[i];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.check_circle_rounded,
-                      color: Color(0xFF10B981), size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Q${i + 1}: ${q.question}',
-                            style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                                height: 1.3)),
-                        const SizedBox(height: 2),
-                        Text('✓ ${q.options[q.correctIndex]}',
-                            style: const TextStyle(
-                                color: Color(0xFF10B981),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
+  bool shouldRepaint(_ArcPainter old) =>
+      old.color != color ||
+      old.strokeWidth != strokeWidth ||
+      old.sweepFraction != sweepFraction;
 }

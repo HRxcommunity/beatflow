@@ -5,6 +5,19 @@ allprojects {
         google()
         mavenCentral()
     }
+    // Force all subprojects to use the same Kotlin stdlib version.
+    // Without this, transitive deps (firebase-auth, emoji_picker_flutter, etc.)
+    // that bundle a different Kotlin stdlib create a "binary version mismatch"
+    // error at compile time even when settings.gradle declares the right version.
+    configurations.all {
+        resolutionStrategy.force(
+            "org.jetbrains.kotlin:kotlin-stdlib:2.1.0",
+            "org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.1.0",
+            "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.0",
+            "org.jetbrains.kotlin:kotlin-reflect:2.1.0",
+            "org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0"
+        )
+    }
 }
 
 // ── Critical: redirect Gradle output so Flutter tool finds the APK ──

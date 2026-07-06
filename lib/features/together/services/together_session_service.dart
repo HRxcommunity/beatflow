@@ -211,22 +211,19 @@ class TogetherSessionService {
     bool isVideo = false,
   }) async {
     try {
-      // BUG-HIGH-04 FIX: only write streamUrl when non-null and non-empty.
-      // Writing null (converted to '') wipes an already-uploaded URL in Firestore
-      // when the host skips to a new song while the previous upload is still in
-      // progress. _TogetherStreamUrlReady pushes the URL when the upload finishes.
+      // BUG-002: always write streamUrl — if null/empty, write '' to clear the
+      // previous song's URL. Skipping this field leaves stale URL in Firestore,
+      // causing guests to play the old song's audio under new song's metadata.
       final Map<String, dynamic> data = {
         'songId':         songId,
         'songTitle':      songTitle,
         'songArtist':     songArtist,
         'songData':       songData,
+        'streamUrl':      streamUrl ?? '', // always write, '' clears stale URL
         'songDurationMs': songDurationMs,
         'positionMs':     positionMs,
         'isPlaying':      isPlaying,
         'isVideo':        isVideo,
-        // Conditional: only write streamUrl when available (BUG-HIGH-04 FIX)
-        if (streamUrl != null && streamUrl.isNotEmpty)
-          'streamUrl': streamUrl,
         'updatedAt':      Timestamp.now(),
         'playbackUpdatedAt': Timestamp.now(), // BUG-S01 FIX: separate playback anchor
       };

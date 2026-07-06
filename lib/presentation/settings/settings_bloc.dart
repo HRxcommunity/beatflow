@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../services/settings_service.dart';
+import '../../core/config/groq_config.dart';
 import '../../data/models/settings_model.dart';
 
 // ─── State ────────────────────────────────────────────────────
@@ -31,6 +32,7 @@ class SettingsState extends Equatable {
   final int togetherBgType;          // 0=default, 1=custom image
   final String? togetherBgImagePath;
   final double togetherBgDimOpacity;
+  final String groqApiKey;
 
   const SettingsState({
     this.themeMode = ThemeMode.dark,
@@ -53,6 +55,7 @@ class SettingsState extends Equatable {
     this.togetherBgType = 0,
     this.togetherBgImagePath,
     this.togetherBgDimOpacity = 0.6,
+    this.groqApiKey = '',
   });
 
   SettingsState copyWith({
@@ -78,6 +81,7 @@ class SettingsState extends Equatable {
     String? togetherBgImagePath,
     bool clearTogetherBgImage = false,
     double? togetherBgDimOpacity,
+    String? groqApiKey,
   }) {
     return SettingsState(
       themeMode: themeMode ?? this.themeMode,
@@ -102,6 +106,7 @@ class SettingsState extends Equatable {
           ? null
           : (togetherBgImagePath ?? this.togetherBgImagePath),
       togetherBgDimOpacity: togetherBgDimOpacity ?? this.togetherBgDimOpacity,
+      groqApiKey: groqApiKey ?? this.groqApiKey,
     );
   }
 
@@ -113,6 +118,7 @@ class SettingsState extends Equatable {
         filterShortClips, gaplessPlayback,
         songCardOpacity, songCardColorIndex, songCardColorValue,
         togetherBgType, togetherBgImagePath, togetherBgDimOpacity,
+        groqApiKey,
       ];
 }
 
@@ -230,6 +236,13 @@ class SettingsTogetherBgDimChanged extends SettingsEvent {
   List<Object?> get props => [opacity];
 }
 
+class SettingsGroqKeyChanged extends SettingsEvent {
+  final String key;
+  const SettingsGroqKeyChanged(this.key);
+  @override
+  List<Object?> get props => [key];
+}
+
 // ─── BLoC ─────────────────────────────────────────────────────
 
 class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
@@ -256,6 +269,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<SettingsTogetherBgImageSet>(_onTogetherBgImageSet);
     on<SettingsTogetherBgReset>(_onTogetherBgReset);
     on<SettingsTogetherBgDimChanged>(_onTogetherBgDimChanged);
+    on<SettingsGroqKeyChanged>(_onGroqKeyChanged);
   }
 
   void _onLoad(SettingsLoad e, Emitter<SettingsState> emit) {
@@ -281,6 +295,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       togetherBgType: s.togetherBgType,
       togetherBgImagePath: s.togetherBgImagePath,
       togetherBgDimOpacity: s.togetherBgDimOpacity,
+      groqApiKey: s.groqApiKey,
     ));
   }
 
@@ -411,5 +426,13 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       SettingsTogetherBgDimChanged e, Emitter<SettingsState> emit) async {
     await _service.updateTogetherBackground(dimOpacity: e.opacity);
     emit(state.copyWith(togetherBgDimOpacity: e.opacity));
+  }
+
+  Future<void> _onGroqKeyChanged(
+      SettingsGroqKeyChanged e, Emitter<SettingsState> emit) async {
+    await _service.updateGroqApiKey(e.key);
+    // Also update GroqConfig so effectiveKey reflects immediately
+    GroqConfig.instance.init(_service);
+    emit(state.copyWith(groqApiKey: e.key));
   }
 }

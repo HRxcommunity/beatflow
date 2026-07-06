@@ -86,7 +86,7 @@ class QrJoinSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color:       AppTheme.accentViolet.withValues(alpha: 0.25),
+                  color:       AppTheme.accentViolet.withOpacity(0.25),
                   blurRadius:  24,
                   spreadRadius: 2,
                 ),
@@ -132,12 +132,12 @@ class QrJoinSheet extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
                 gradient: LinearGradient(
                   colors: [
-                    AppTheme.accentViolet.withValues(alpha: 0.2),
-                    AppTheme.accentCyan.withValues(alpha: 0.2),
+                    AppTheme.accentViolet.withOpacity(0.2),
+                    AppTheme.accentCyan.withOpacity(0.2),
                   ],
                 ),
                 border: Border.all(
-                  color: AppTheme.accentViolet.withValues(alpha: 0.5),
+                  color: AppTheme.accentViolet.withOpacity(0.5),
                   width: 1.5,
                 ),
               ),

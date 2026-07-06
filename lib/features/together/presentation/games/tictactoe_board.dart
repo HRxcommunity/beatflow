@@ -81,8 +81,8 @@ class _Cell extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: isWin
-            ? _winColor.withValues(alpha: 0.15)
-            : Colors.white.withValues(alpha: 0.04),
+            ? _winColor.withOpacity(0.15)
+            : Colors.white.withOpacity(0.04),
         border: Border(
           right:  col < 2 ? const BorderSide(color: _lineColor, width: 2) : BorderSide.none,
           bottom: row < 2 ? const BorderSide(color: _lineColor, width: 2) : BorderSide.none,
